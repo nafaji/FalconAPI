@@ -1,11 +1,12 @@
-﻿using System;
+﻿using Rayna.APIIntegration.Models.ResponseModels;
+using System;
 using System.Threading.Tasks;
 
-namespace Falcon.Services
+namespace Rayna.APIIntegration.Services
 {
     public interface IFalconService
     {
-        public Task<string> GetProductListAsync(string email, string passKey);
+        public Task<RaynaTourList> GetProductListAsync(string email, string passKey);
 
         public Task<string> CheckAvailabilityAsync(string email, string passKey, DateTime date, int package, int noOfPax);
 

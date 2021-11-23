@@ -1,10 +1,11 @@
-﻿using Falcon.Services;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Rayna.APIIntegration.Models.ResponseModels;
+using Rayna.APIIntegration.Services;
 using System;
 using System.Threading.Tasks;
 
-namespace Falcon.Controllers
+namespace Rayna.APIIntegration.Controllers
 {
     [ApiController]
     [Route("[controller]")]
@@ -20,7 +21,7 @@ namespace Falcon.Controllers
         }
 
         [HttpGet("GetProductList")]
-        public Task<string> GetProductList(string email, string passKey)
+        public Task<RaynaTourList> GetProductList(string email, string passKey)
         {
             var results = _falconService.GetProductListAsync(email, passKey);
             return results;

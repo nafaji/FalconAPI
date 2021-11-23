@@ -1,12 +1,15 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Rayna.APIIntegration.Models.ResponseModels;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Falcon.Services
+namespace Rayna.APIIntegration.Services
 {
-    public class LogInResultDto
+    public class FalconLogInResultDto
     {
         public string Message { get; set; }
 
@@ -15,8 +18,22 @@ namespace Falcon.Services
         public string Name { get; set; }
     }
 
+    public class FalconProductDto
+    {
+        public string Title { get; set; }
+
+        public string SharingPrice { get; set; }
+
+        public string ExclusivePrice { get; set; }
+
+        public string PaxType { get; set; }
+    }
+
     public class FalconService : IFalconService
     {
+        private const int SuccessStatus = 1;
+        private const int FailedStatus = 0;
+        private const string Failed = "Failed";
         private const string apiUrl = "https://booking.falconhelitours.com/api/fTYgDUwwdC/";
         //private const string apiUrl = "https://partners.falconhelitours.com/api/fTYgDUwwdC/";
         private const string secret = "mysecret";
@@ -38,39 +55,99 @@ namespace Falcon.Services
             HttpResponseMessage response = await httpClient.PostAsync(url, content);
             //Now process the response
             string body = string.Empty;
-            var loginResultDto = new LogInResultDto();
+            var loginResultDto = new FalconLogInResultDto();
 
             if (response.IsSuccessStatusCode)
             {
                 body = await response.Content.ReadAsStringAsync();
-                loginResultDto = JsonConvert.DeserializeObject<LogInResultDto>(body);
+                loginResultDto = JsonConvert.DeserializeObject<FalconLogInResultDto>(body);
             }
 
             return loginResultDto.JWT;
         }
 
-        public async Task<string> GetProductListAsync(string email, string passKey)
+        public async Task<RaynaTourList> GetProductListAsync(string email, string passKey)
         {
-            jwt = await LoginAsync(email, passKey);
+            var raynaTourList = new RaynaTourList();
 
-            var httpClient = new HttpClient();
+            try
+            {
+                jwt = await LoginAsync(email, passKey);
 
-            var url = apiUrl + "retrieve_packages.php";
-            var postData = JsonConvert.SerializeObject(new
-            {
-                jwt = jwt,
-                secret = secret
-            });
-            var content = new StringContent(postData, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await httpClient.PostAsync(url, content);
-            //Now process the response
-            string body = string.Empty;
-            if (response.IsSuccessStatusCode)
-            {
-                body = await response.Content.ReadAsStringAsync();
+                var httpClient = new HttpClient();
+
+                var url = apiUrl + "retrieve_packages.php";
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    jwt = jwt,
+                    secret = secret
+                });
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+                //Now process the response
+                string body = string.Empty;
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+
+                    if (!string.IsNullOrEmpty(body))
+                    {
+                        dynamic packages = JObject.Parse(body);
+                        var packageList = ((JContainer)packages);
+
+                        if (packageList.HasValues)
+                        {
+                            var firstPackage = ((JProperty)packageList.First).Value;
+
+                            var supplierTourList = new List<SupplierTourList>();
+
+                            foreach (var location in firstPackage.Children())
+                            {
+                                var selectedLocation = ((JProperty)location).Value;
+
+                                foreach (var product in selectedLocation.Children())
+                                {
+                                    var selectedProduct = ((JProperty)product).Value;
+                                    var selectedProductAsJson = JsonConvert.SerializeObject(selectedProduct);
+                                    var falconProduct = JsonConvert.DeserializeObject<FalconProductDto>(selectedProductAsJson);
+
+                                    supplierTourList.Add(new SupplierTourList { ProductCode = ((JProperty)product).Name, ProductName = falconProduct.Title, ProductPrice = falconProduct.SharingPrice, ProductDescription = ((JProperty)location).Name });
+                                }
+                            }
+
+                            raynaTourList.SupplierTourList = supplierTourList;
+
+                            raynaTourList.Status = SuccessStatus;
+                            return raynaTourList;
+                        }
+                        else
+                        {
+                            raynaTourList.Status = FailedStatus;
+                            raynaTourList.ErrorMessage = Failed;
+                            return raynaTourList;
+                        }
+                    }
+                    else
+                    {
+                        raynaTourList.Status = FailedStatus;
+                        raynaTourList.ErrorMessage = Failed;
+                        return raynaTourList;
+                    }
+                }
+                else
+                {
+                    raynaTourList.Status = FailedStatus;
+                    raynaTourList.ErrorMessage = Failed;
+                    return raynaTourList;
+                }
             }
+            catch (Exception ex)
+            {
+                raynaTourList.Status = FailedStatus;
+                raynaTourList.ErrorMessage = ex.Message;
 
-            return body;
+                return raynaTourList;
+            }
         }
 
         public async Task<string> CheckAvailabilityAsync(string email, string passKey, DateTime date, int package, int noOfPax)
