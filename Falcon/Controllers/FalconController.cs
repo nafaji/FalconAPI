@@ -28,7 +28,7 @@ namespace Rayna.APIIntegration.Controllers
         }
 
         [HttpGet("CheckAvailability")]
-        public Task<string> CheckAvailability(string email, string passKey, DateTime date, int package, int noOfPax)
+        public Task<RaynaTimeSlotList> CheckAvailability(string email, string passKey, DateTime date, int package, int noOfPax)
         {
             var results = _falconService.CheckAvailabilityAsync(email, passKey, date, package, noOfPax);
             return results;

@@ -29,6 +29,19 @@ namespace Rayna.APIIntegration.Services
         public string PaxType { get; set; }
     }
 
+    public class FalconSlotDto
+    {
+        public string StartTime { get; set; }
+
+        public string EndTime { get; set; }
+
+        public string Package { get; set; }
+
+        public string SlotId { get; set; }
+
+        public string AvailableSeats { get; set; }
+    }
+
     public class FalconService : IFalconService
     {
         private const int SuccessStatus = 1;
@@ -150,31 +163,95 @@ namespace Rayna.APIIntegration.Services
             }
         }
 
-        public async Task<string> CheckAvailabilityAsync(string email, string passKey, DateTime date, int package, int noOfPax)
+        public async Task<RaynaTimeSlotList> CheckAvailabilityAsync(string email, string passKey, DateTime date, int package, int noOfPax)
         {
-            jwt = await LoginAsync(email, passKey);
+            var raynaTimeSlotList = new RaynaTimeSlotList();
 
-            var httpClient = new HttpClient();
+            try
+            {
+                jwt = await LoginAsync(email, passKey);
 
-            var url = apiUrl + "retrieve_slots.php";
-            var postData = JsonConvert.SerializeObject(new
-            {
-                jwt = jwt,
-                date = date.Date.ToString("yyyy-MM-dd"),
-                package = package,
-                noofpax = noOfPax,
-                secret = secret
-            });
-            var content = new StringContent(postData, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await httpClient.PostAsync(url, content);
-            //Now process the response
-            string body = string.Empty;
-            if (response.IsSuccessStatusCode)
-            {
-                body = await response.Content.ReadAsStringAsync();
+                var httpClient = new HttpClient();
+
+                var url = apiUrl + "retrieve_slots.php";
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    jwt = jwt,
+                    date = date.Date.ToString("yyyy-MM-dd"),
+                    package = package,
+                    noofpax = noOfPax,
+                    secret = secret
+                });
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+                //Now process the response
+                string body = string.Empty;
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+
+                    if (!string.IsNullOrEmpty(body))
+                    {
+                        dynamic slots = JObject.Parse(body);
+                        var slotList = ((JContainer)slots);
+
+                        if (slotList.HasValues)
+                        {
+                            var firstSlot = ((JProperty)slotList.First).Value;
+
+                            var supplierTimeSlots = new List<SupplierTimeSlots>();
+
+                            foreach (var slot in firstSlot.Children())
+                            {
+                                var selectedSlots = ((JProperty)slot).Value;
+                                var selectedSlotsAsJson = JsonConvert.SerializeObject(selectedSlots);
+
+                                if (!selectedSlotsAsJson.Contains("message"))
+                                {
+                                    var falconSlots = JsonConvert.DeserializeObject<List<FalconSlotDto>>(selectedSlotsAsJson);
+                                    foreach (var falconSlot in falconSlots)
+                                    {
+                                        supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime) });
+                                    }
+                                }
+                            }
+
+                            raynaTimeSlotList.SupplierTimeSlots = supplierTimeSlots;
+
+                            raynaTimeSlotList.Status = SuccessStatus;
+                            return raynaTimeSlotList;
+                        }
+                        else
+                        {
+                            raynaTimeSlotList.Status = FailedStatus;
+                            raynaTimeSlotList.ErrorMessage = Failed;
+
+                            return raynaTimeSlotList;
+                        }
+                    }
+                    else
+                    {
+                        raynaTimeSlotList.Status = FailedStatus;
+                        raynaTimeSlotList.ErrorMessage = Failed;
+
+                        return raynaTimeSlotList;
+                    }
+                }
+                else
+                {
+                    raynaTimeSlotList.Status = FailedStatus;
+                    raynaTimeSlotList.ErrorMessage = Failed;
+
+                    return raynaTimeSlotList;
+                }
             }
+            catch (Exception ex)
+            {
+                raynaTimeSlotList.Status = FailedStatus;
+                raynaTimeSlotList.ErrorMessage = ex.Message;
 
-            return body;
+                return raynaTimeSlotList;
+            }
         }
 
         public async Task<string> ReserveAsync(string email, string passKey, DateTime date, int package, string time, int slotId, int numberOfPax, int paxType, string paxPhoneNumber, string bookingReference)
