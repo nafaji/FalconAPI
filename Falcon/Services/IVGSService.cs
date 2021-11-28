@@ -4,9 +4,9 @@ using System.Threading.Tasks;
 
 namespace Rayna.ApiIntegration.Services
 {
-    public interface IFalconService
+    public interface IVGSService
     {
-        public Task<RaynaTourList> GetProductListAsync(string email, string passKey);
+        public Task<RaynaTourList> GetProductListAsync();
 
         public Task<RaynaTimeSlotList> CheckAvailabilityAsync(string email, string passKey, DateTime date, int package, int noOfPax);
 

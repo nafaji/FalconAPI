@@ -4,9 +4,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
-using Rayna.APIIntegration.Services;
+using Rayna.ApiIntegration.Services;
 
-namespace Rayna.APIIntegration
+namespace Rayna.ApiIntegration
 {
     public class Startup
     {
@@ -24,10 +24,11 @@ namespace Rayna.APIIntegration
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Falcon", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Rayna Api Integration", Version = "v1" });
             });
 
             services.AddScoped<IFalconService, FalconService>();
+            services.AddScoped<IVGSService, VGSService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

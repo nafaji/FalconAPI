@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Rayna.APIIntegration.Models.ResponseModels;
-using Rayna.APIIntegration.Services;
+using Rayna.ApiIntegration.Models.ResponseModels;
+using Rayna.ApiIntegration.Services;
 using System;
 using System.Threading.Tasks;
 
-namespace Rayna.APIIntegration.Controllers
+namespace Rayna.ApiIntegration.Controllers
 {
     [ApiController]
     [Route("[controller]")]

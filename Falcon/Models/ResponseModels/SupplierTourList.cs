@@ -1,4 +1,4 @@
-﻿namespace Rayna.APIIntegration.Models.ResponseModels
+﻿namespace Rayna.ApiIntegration.Models.ResponseModels
 {
     public class SupplierTourList
     {

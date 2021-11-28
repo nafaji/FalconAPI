@@ -1,13 +1,14 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Rayna.APIIntegration.Models.ResponseModels;
+using Rayna.ApiIntegration.Models.ResponseModels;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Rayna.APIIntegration.Services
+namespace Rayna.ApiIntegration.Services
 {
     public class FalconLogInResultDto
     {
@@ -20,6 +21,8 @@ namespace Rayna.APIIntegration.Services
 
     public class FalconProductDto
     {
+        public string ProductCode { get; set; }
+
         public string Title { get; set; }
 
         public string SharingPrice { get; set; }
@@ -47,9 +50,9 @@ namespace Rayna.APIIntegration.Services
         private const int SuccessStatus = 1;
         private const int FailedStatus = 0;
         private const string Failed = "Failed";
-        private const string apiUrl = "https://booking.falconhelitours.com/api/fTYgDUwwdC/";
-        //private const string apiUrl = "https://partners.falconhelitours.com/api/fTYgDUwwdC/";
-        private const string secret = "mysecret";
+        private const string ApiUrl = "https://booking.falconhelitours.com/api/fTYgDUwwdC/";
+        //private const string ApiUrl = "https://partners.falconhelitours.com/api/fTYgDUwwdC/";
+        private const string Secret = "mysecret";
 
         private string jwt = string.Empty;
 
@@ -57,12 +60,12 @@ namespace Rayna.APIIntegration.Services
         {
             var httpClient = new HttpClient();
 
-            var url = apiUrl + "login.php";
+            var url = ApiUrl + "login.php";
             var postData = JsonConvert.SerializeObject(new
             {
                 email = email,
                 passkey = passKey,
-                secret = secret
+                secret = Secret
             });
             var content = new StringContent(postData, Encoding.UTF8, "application/json");
             HttpResponseMessage response = await httpClient.PostAsync(url, content);
@@ -79,6 +82,63 @@ namespace Rayna.APIIntegration.Services
             return loginResultDto.JWT;
         }
 
+        private async Task<List<FalconProductDto>> GetFalconProductListAsync(string jwt)
+        {
+            var falconProductList = new List<FalconProductDto>();
+
+            try
+            {
+                var httpClient = new HttpClient();
+
+                var url = ApiUrl + "retrieve_packages.php";
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    jwt = jwt,
+                    secret = Secret
+                });
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+                //Now process the response
+                string body = string.Empty;
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+
+                    if (!string.IsNullOrEmpty(body))
+                    {
+                        dynamic packages = JObject.Parse(body);
+                        var packageList = ((JContainer)packages);
+
+                        if (packageList.HasValues)
+                        {
+                            var firstPackage = ((JProperty)packageList.First).Value;
+
+                            foreach (var location in firstPackage.Children())
+                            {
+                                var selectedLocation = ((JProperty)location).Value;
+
+                                foreach (var product in selectedLocation.Children())
+                                {
+                                    var selectedProduct = ((JProperty)product).Value;
+                                    var selectedProductAsJson = JsonConvert.SerializeObject(selectedProduct);
+                                    var falconProduct = JsonConvert.DeserializeObject<FalconProductDto>(selectedProductAsJson);
+                                    falconProduct.ProductCode = ((JProperty)product).Name;
+
+                                    falconProductList.Add(falconProduct);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return falconProductList;
+            }
+            catch (Exception ex)
+            {
+                return falconProductList;
+            }
+        }
+
         public async Task<RaynaTourList> GetProductListAsync(string email, string passKey)
         {
             var raynaTourList = new RaynaTourList();
@@ -89,11 +149,11 @@ namespace Rayna.APIIntegration.Services
 
                 var httpClient = new HttpClient();
 
-                var url = apiUrl + "retrieve_packages.php";
+                var url = ApiUrl + "retrieve_packages.php";
                 var postData = JsonConvert.SerializeObject(new
                 {
                     jwt = jwt,
-                    secret = secret
+                    secret = Secret
                 });
                 var content = new StringContent(postData, Encoding.UTF8, "application/json");
                 HttpResponseMessage response = await httpClient.PostAsync(url, content);
@@ -173,14 +233,14 @@ namespace Rayna.APIIntegration.Services
 
                 var httpClient = new HttpClient();
 
-                var url = apiUrl + "retrieve_slots.php";
+                var url = ApiUrl + "retrieve_slots.php";
                 var postData = JsonConvert.SerializeObject(new
                 {
                     jwt = jwt,
                     date = date.Date.ToString("yyyy-MM-dd"),
                     package = package,
                     noofpax = noOfPax,
-                    secret = secret
+                    secret = Secret
                 });
                 var content = new StringContent(postData, Encoding.UTF8, "application/json");
                 HttpResponseMessage response = await httpClient.PostAsync(url, content);
@@ -197,6 +257,19 @@ namespace Rayna.APIIntegration.Services
 
                         if (slotList.HasValues)
                         {
+                            var falconProductList = await GetFalconProductListAsync(jwt);
+                            FalconProductDto falconProduct;
+
+                            if (falconProductList.Count > 0)
+                            {
+                                var productCode = package.ToString();
+                                falconProduct = falconProductList.Single(s => s.ProductCode == productCode);
+                            }
+                            else
+                            {
+                                falconProduct = new FalconProductDto();
+                            }
+
                             var firstSlot = ((JProperty)slotList.First).Value;
 
                             var supplierTimeSlots = new List<SupplierTimeSlots>();
@@ -211,7 +284,15 @@ namespace Rayna.APIIntegration.Services
                                     var falconSlots = JsonConvert.DeserializeObject<List<FalconSlotDto>>(selectedSlotsAsJson);
                                     foreach (var falconSlot in falconSlots)
                                     {
-                                        supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime) });
+                                        if (string.IsNullOrEmpty(falconProduct.ProductCode))
+                                        {
+                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime) });
+                                        }
+                                        else
+                                        {
+                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.SharingPrice) ? 0 : Convert.ToDecimal(falconProduct.SharingPrice) });
+                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.ExclusivePrice) ? 0 : Convert.ToDecimal(falconProduct.ExclusivePrice) });
+                                        }
                                     }
                                 }
                             }
@@ -260,7 +341,7 @@ namespace Rayna.APIIntegration.Services
 
             var httpClient = new HttpClient();
 
-            var url = apiUrl + "reserve_slot.php";
+            var url = ApiUrl + "reserve_slot.php";
             var postData = JsonConvert.SerializeObject(new
             {
                 jwt = jwt,
@@ -272,7 +353,7 @@ namespace Rayna.APIIntegration.Services
                 paxtype = paxType,
                 paxphonenumber = paxPhoneNumber,
                 bookingreference = bookingReference,
-                secret = secret
+                secret = Secret
             });
             var content = new StringContent(postData, Encoding.UTF8, "application/json");
             HttpResponseMessage response = await httpClient.PostAsync(url, content);
@@ -292,14 +373,14 @@ namespace Rayna.APIIntegration.Services
 
             var httpClient = new HttpClient();
 
-            var url = apiUrl + "book_slot.php";
+            var url = ApiUrl + "book_slot.php";
             var postData = JsonConvert.SerializeObject(new
             {
                 jwt = jwt,
                 bookingreference = bookingReference,
                 bookingid = bookingId,
                 paymenttype = paymentType,
-                secret = secret
+                secret = Secret
             });
             var content = new StringContent(postData, Encoding.UTF8, "application/json");
             HttpResponseMessage response = await httpClient.PostAsync(url, content);
@@ -319,13 +400,13 @@ namespace Rayna.APIIntegration.Services
 
             var httpClient = new HttpClient();
 
-            var url = apiUrl + "cancel_slot.php";
+            var url = ApiUrl + "cancel_slot.php";
             var postData = JsonConvert.SerializeObject(new
             {
                 jwt = jwt,
                 bookingreference = bookingReference,
                 bookingid = bookingId,
-                secret = secret
+                secret = Secret
             });
             var content = new StringContent(postData, Encoding.UTF8, "application/json");
             HttpResponseMessage response = await httpClient.PostAsync(url, content);
