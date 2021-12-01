@@ -28,25 +28,25 @@ namespace Rayna.ApiIntegration.Controllers
         }
 
         [HttpGet("CheckAvailability")]
-        public Task<RaynaTimeSlotList> CheckAvailability(string email, string passKey, DateTime date, int package, int noOfPax)
+        public Task<RaynaTimeSlotList> CheckAvailability(string email, string passKey, DateTime date, string productCode, int noOfPax)
         {
-            var results = _falconService.CheckAvailabilityAsync(email, passKey, date, package, noOfPax);
-            return results;
-        }
-
-        [HttpGet("Reserve")]
-        public Task<string> Reserve(string email, string passKey, DateTime date, int package, string time, int slotId, int numberOfPax, int paxType, string paxPhoneNumber, string bookingReference)
-        {
-            var results = _falconService.ReserveAsync(email, passKey, date, package, time, slotId, numberOfPax, paxType, paxPhoneNumber, bookingReference);
+            var results = _falconService.CheckAvailabilityAsync(email, passKey, date, productCode, noOfPax);
             return results;
         }
 
         [HttpGet("Booking")]
-        public Task<string> Booking(string email, string passKey, string bookingReference, string bookingId, int paymentType)
+        public Task<RaynaBookingDetails> Booking(string email, string passKey, DateTime date, string productCode, string time, string timeSlotId, int numberOfPax, string paxType, string paxPhoneNumber, string bookingReference, string paymentType)
         {
-            var results = _falconService.BookingAsync(email, passKey, bookingReference, bookingId, paymentType);
+            var results = _falconService.BookingAsync(email, passKey, date, productCode, time, timeSlotId, numberOfPax, paxType, paxPhoneNumber, bookingReference, paymentType);
             return results;
         }
+
+        //[HttpGet("Booking")]
+        //public Task<string> Booking(string email, string passKey, string bookingReference, string bookingId, int paymentType)
+        //{
+        //    var results = _falconService.BookingAsync(email, passKey, bookingReference, bookingId, paymentType);
+        //    return results;
+        //}
 
         [HttpGet("CancelBooking")]
         public Task<string> CancelBooking(string email, string passKey, string bookingReference, string bookingId)

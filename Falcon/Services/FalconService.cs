@@ -45,6 +45,72 @@ namespace Rayna.ApiIntegration.Services
         public string AvailableSeats { get; set; }
     }
 
+    public class FalconReservationDto
+    {
+        public string Date { get; set; }
+
+        public string Time { get; set; }
+
+        public string Package { get; set; }
+
+        [JsonProperty("Lead Passenger")]
+        public string LeadPassenger { get; set; }
+
+        [JsonProperty("Booking Ref.")]
+        public string BookingReference { get; set; }
+
+        [JsonProperty("No. of Pax.")]
+        public int NumberOfPassengers { get; set; }
+
+        [JsonProperty("Passenger Type")]
+        public string PassengerType { get; set; }
+
+        public string Weights { get; set; }
+
+        [JsonProperty("Contact Number")]
+        public string ContactNumber { get; set; }
+
+        [JsonProperty("Passenger Email")]
+        public string PassengerEmail { get; set; }
+
+        [JsonProperty("Booking ID")]
+        public string BookingId { get; set; }
+    }
+
+    public class FalconBookingDto
+    {
+        [JsonProperty("Booking ID")]
+        public string BookingId { get; set; }
+
+        public string Date { get; set; }
+
+        public string Time { get; set; }
+
+        public string Package { get; set; }
+
+        public string Remarks { get; set; }
+
+        [JsonProperty("Lead Passenger")]
+        public string LeadPassenger { get; set; }
+
+        [JsonProperty("Booking Ref.")]
+        public string BookingReference { get; set; }
+
+        [JsonProperty("No. of Pax.")]
+        public int NumberOfPassengers { get; set; }
+
+        [JsonProperty("Passenger Type")]
+        public string PassengerType { get; set; }
+
+        public string Weights { get; set; }
+
+        [JsonProperty("Contact Number")]
+        public string ContactNumber { get; set; }
+
+        [JsonProperty("Passenger Email")]
+        public string PassengerEmail { get; set; }
+    }
+
     public class FalconService : IFalconService
     {
         private const int SuccessStatus = 1;
@@ -54,7 +120,8 @@ namespace Rayna.ApiIntegration.Services
         //private const string ApiUrl = "https://partners.falconhelitours.com/api/fTYgDUwwdC/";
         private const string Secret = "mysecret";
 
-        private string jwt = string.Empty;
+        private string _jwt = string.Empty;
+        private string _selectedProductName = string.Empty;
 
         private async Task<string> LoginAsync(string email, string passKey)
         {
@@ -145,14 +212,14 @@ namespace Rayna.ApiIntegration.Services
 
             try
             {
-                jwt = await LoginAsync(email, passKey);
+                _jwt = await LoginAsync(email, passKey);
 
                 var httpClient = new HttpClient();
 
                 var url = ApiUrl + "retrieve_packages.php";
                 var postData = JsonConvert.SerializeObject(new
                 {
-                    jwt = jwt,
+                    jwt = _jwt,
                     secret = Secret
                 });
                 var content = new StringContent(postData, Encoding.UTF8, "application/json");
@@ -223,22 +290,22 @@ namespace Rayna.ApiIntegration.Services
             }
         }
 
-        public async Task<RaynaTimeSlotList> CheckAvailabilityAsync(string email, string passKey, DateTime date, int package, int noOfPax)
+        public async Task<RaynaTimeSlotList> CheckAvailabilityAsync(string email, string passKey, DateTime date, string productCode, int noOfPax)
         {
             var raynaTimeSlotList = new RaynaTimeSlotList();
 
             try
             {
-                jwt = await LoginAsync(email, passKey);
+                _jwt = await LoginAsync(email, passKey);
 
                 var httpClient = new HttpClient();
 
                 var url = ApiUrl + "retrieve_slots.php";
                 var postData = JsonConvert.SerializeObject(new
                 {
-                    jwt = jwt,
+                    jwt = _jwt,
                     date = date.Date.ToString("yyyy-MM-dd"),
-                    package = package,
+                    package = productCode,
                     noofpax = noOfPax,
                     secret = Secret
                 });
@@ -257,13 +324,13 @@ namespace Rayna.ApiIntegration.Services
 
                         if (slotList.HasValues)
                         {
-                            var falconProductList = await GetFalconProductListAsync(jwt);
+                            var falconProductList = await GetFalconProductListAsync(_jwt);
                             FalconProductDto falconProduct;
 
                             if (falconProductList.Count > 0)
                             {
-                                var productCode = package.ToString();
                                 falconProduct = falconProductList.Single(s => s.ProductCode == productCode);
+                                _selectedProductName = falconProduct.Title;
                             }
                             else
                             {
@@ -290,8 +357,8 @@ namespace Rayna.ApiIntegration.Services
                                         }
                                         else
                                         {
-                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.SharingPrice) ? 0 : Convert.ToDecimal(falconProduct.SharingPrice) });
-                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.ExclusivePrice) ? 0 : Convert.ToDecimal(falconProduct.ExclusivePrice) });
+                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, EventId = "1", Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.SharingPrice) ? 0 : Convert.ToDecimal(falconProduct.SharingPrice) });
+                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, EventId = "2", Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.ExclusivePrice) ? 0 : Convert.ToDecimal(falconProduct.ExclusivePrice) });
                                         }
                                     }
                                 }
@@ -335,75 +402,275 @@ namespace Rayna.ApiIntegration.Services
             }
         }
 
-        public async Task<string> ReserveAsync(string email, string passKey, DateTime date, int package, string time, int slotId, int numberOfPax, int paxType, string paxPhoneNumber, string bookingReference)
+        public async Task<RaynaBookingDetails> BookingAsync(string email, string passKey, DateTime date, string productCode, string time, string timeSlotId, int numberOfPax, string paxType, string paxPhoneNumber, string bookingReference, string paymentType)
         {
-            jwt = await LoginAsync(email, passKey);
+            var raynaBookingDetails = new RaynaBookingDetails();
 
-            var httpClient = new HttpClient();
+            try
+            {
+                var raynaTimeSlotList = await CheckAvailabilityAsync(email, passKey, date, productCode, numberOfPax);
 
-            var url = ApiUrl + "reserve_slot.php";
-            var postData = JsonConvert.SerializeObject(new
-            {
-                jwt = jwt,
-                date = date.Date.ToString("yyyy-MM-dd"),
-                package = package,
-                time = time,
-                slotid = slotId,
-                numberofpax = numberOfPax,
-                paxtype = paxType,
-                paxphonenumber = paxPhoneNumber,
-                bookingreference = bookingReference,
-                secret = Secret
-            });
-            var content = new StringContent(postData, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await httpClient.PostAsync(url, content);
-            //Now process the response
-            string body = string.Empty;
-            if (response.IsSuccessStatusCode)
-            {
-                body = await response.Content.ReadAsStringAsync();
+                if (raynaTimeSlotList.SupplierTimeSlots.Count() > 0)
+                {
+                    var selectedDateTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + time);
+                    var selectedTimeSlot = raynaTimeSlotList.SupplierTimeSlots.SingleOrDefault(s => s.StratTime == selectedDateTime &&
+                    s.EventId == paxType &&
+                    s.TimeSlotId == timeSlotId);
+
+                    if (!string.IsNullOrEmpty(selectedTimeSlot.TimeSlotId))
+                    {
+                        var endDateTime = selectedTimeSlot.EndTime;
+
+                        _jwt = await LoginAsync(email, passKey);
+
+                        var httpClient = new HttpClient();
+
+                        var url = ApiUrl + "reserve_slot.php";
+                        var postData = JsonConvert.SerializeObject(new
+                        {
+                            jwt = _jwt,
+                            date = date.Date.ToString("yyyy-MM-dd"),
+                            package = productCode,
+                            time = time,
+                            slotid = timeSlotId,
+                            numberofpax = numberOfPax,
+                            paxtype = paxType,
+                            paxphonenumber = paxPhoneNumber,
+                            bookingreference = bookingReference,
+                            secret = Secret
+                        });
+                        var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                        HttpResponseMessage response = await httpClient.PostAsync(url, content);
+                        //Now process the response
+                        string body = string.Empty;
+                        if (response.IsSuccessStatusCode)
+                        {
+                            body = await response.Content.ReadAsStringAsync();
+
+                            if (!string.IsNullOrEmpty(body))
+                            {
+                                dynamic reservation = JObject.Parse(body);
+                                var reservationList = ((JContainer)reservation);
+
+                                if (reservationList.HasValues)
+                                {
+                                    var firstReservation = ((JProperty)reservationList.First).Value;
+                                    var falconReservationDetails = new FalconReservationDto();
+
+                                    foreach (var reservationRecord in firstReservation.Children())
+                                    {
+                                        falconReservationDetails = JsonConvert.DeserializeObject<FalconReservationDto>(JsonConvert.SerializeObject(reservationRecord));
+                                    }
+
+                                    if (!string.IsNullOrEmpty(falconReservationDetails.BookingId))
+                                    {
+                                        var bookingUrl = ApiUrl + "book_slot.php";
+                                        var bookingPostData = JsonConvert.SerializeObject(new
+                                        {
+                                            jwt = _jwt,
+                                            bookingreference = bookingReference,
+                                            bookingid = falconReservationDetails.BookingId,
+                                            paymenttype = paymentType,
+                                            secret = Secret
+                                        });
+                                        var bookingContent = new StringContent(postData, Encoding.UTF8, "application/json");
+                                        HttpResponseMessage bookingResponse = await httpClient.PostAsync(bookingUrl, content);
+
+                                        string bookingBody = string.Empty;
+                                        if (response.IsSuccessStatusCode)
+                                        {
+                                            bookingBody = await response.Content.ReadAsStringAsync();
+
+                                            if (!string.IsNullOrEmpty(bookingBody))
+                                            {
+                                                dynamic booking = JObject.Parse(bookingBody);
+                                                var bookingList = ((JContainer)booking);
+
+                                                if (bookingList.HasValues)
+                                                {
+                                                    var firstBookingValue = ((JProperty)bookingList.First).Value;
+                                                    var falconBookingDetails = new FalconBookingDto();
+
+                                                    foreach (var bookingRecord in firstBookingValue.Children())
+                                                    {
+                                                        falconBookingDetails = JsonConvert.DeserializeObject<FalconBookingDto>(JsonConvert.SerializeObject(bookingRecord));
+                                                        raynaBookingDetails.SupplierTicketDetails.Add(new SupplierTicketDetails
+                                                        {
+                                                            ProductCode = falconBookingDetails.Package,
+                                                            ProdctName = _selectedProductName,
+                                                            EventId = falconBookingDetails.PassengerType,
+                                                            StartTime = Convert.ToDateTime(falconBookingDetails.Date + " " + falconBookingDetails.Time),
+                                                            EndTime = endDateTime,
+                                                            NoOfAdult = falconBookingDetails.NumberOfPassengers,
+                                                        });
+                                                    }
+
+                                                    if (!string.IsNullOrEmpty(falconBookingDetails.BookingId))
+                                                    {
+                                                        raynaBookingDetails.SupplierConfirmationNumber = falconBookingDetails.BookingId;
+                                                        raynaBookingDetails.Status = SuccessStatus;
+                                                        return raynaBookingDetails;
+                                                    }
+                                                    else
+                                                    {
+                                                        raynaBookingDetails.Status = FailedStatus;
+                                                        raynaBookingDetails.ErrorMessage = Failed;
+
+                                                        return raynaBookingDetails;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    raynaBookingDetails.Status = FailedStatus;
+                                                    raynaBookingDetails.ErrorMessage = Failed;
+
+                                                    return raynaBookingDetails;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                raynaBookingDetails.Status = FailedStatus;
+                                                raynaBookingDetails.ErrorMessage = Failed;
+
+                                                return raynaBookingDetails;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            raynaBookingDetails.Status = FailedStatus;
+                                            raynaBookingDetails.ErrorMessage = Failed;
+
+                                            return raynaBookingDetails;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        raynaBookingDetails.Status = FailedStatus;
+                                        raynaBookingDetails.ErrorMessage = Failed;
+
+                                        return raynaBookingDetails;
+                                    }
+                                }
+                                else
+                                {
+                                    raynaBookingDetails.Status = FailedStatus;
+                                    raynaBookingDetails.ErrorMessage = Failed;
+
+                                    return raynaBookingDetails;
+                                }
+                            }
+                            else
+                            {
+                                raynaBookingDetails.Status = FailedStatus;
+                                raynaBookingDetails.ErrorMessage = Failed;
+
+                                return raynaBookingDetails;
+                            }
+                        }
+                        else
+                        {
+                            raynaBookingDetails.Status = FailedStatus;
+                            raynaBookingDetails.ErrorMessage = Failed;
+
+                            return raynaBookingDetails;
+                        }
+                    }
+                    else
+                    {
+                        raynaBookingDetails.Status = FailedStatus;
+                        raynaBookingDetails.ErrorMessage = Failed;
+
+                        return raynaBookingDetails;
+                    }
+                }
+                else
+                {
+                    raynaBookingDetails.Status = FailedStatus;
+                    raynaBookingDetails.ErrorMessage = Failed;
+
+                    return raynaBookingDetails;
+                }
             }
+            catch (Exception ex)
+            {
+                raynaBookingDetails.Status = FailedStatus;
+                raynaBookingDetails.ErrorMessage = ex.Message;
 
-            return body;
+                return raynaBookingDetails;
+            }
         }
 
-        public async Task<string> BookingAsync(string email, string passKey, string bookingReference, string bookingId, int paymentType)
-        {
-            jwt = await LoginAsync(email, passKey);
 
-            var httpClient = new HttpClient();
 
-            var url = ApiUrl + "book_slot.php";
-            var postData = JsonConvert.SerializeObject(new
-            {
-                jwt = jwt,
-                bookingreference = bookingReference,
-                bookingid = bookingId,
-                paymenttype = paymentType,
-                secret = Secret
-            });
-            var content = new StringContent(postData, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await httpClient.PostAsync(url, content);
-            //Now process the response
-            string body = string.Empty;
-            if (response.IsSuccessStatusCode)
-            {
-                body = await response.Content.ReadAsStringAsync();
-            }
+        //public async Task<string> ReserveAsync(string email, string passKey, DateTime date, int package, string time, int slotId, int numberOfPax, int paxType, string paxPhoneNumber, string bookingReference)
+        //{
+        //    jwt = await LoginAsync(email, passKey);
 
-            return body;
-        }
+        //    var httpClient = new HttpClient();
+
+        //    var url = ApiUrl + "reserve_slot.php";
+        //    var postData = JsonConvert.SerializeObject(new
+        //    {
+        //        jwt = jwt,
+        //        date = date.Date.ToString("yyyy-MM-dd"),
+        //        package = package,
+        //        time = time,
+        //        slotid = slotId,
+        //        numberofpax = numberOfPax,
+        //        paxtype = paxType,
+        //        paxphonenumber = paxPhoneNumber,
+        //        bookingreference = bookingReference,
+        //        secret = Secret
+        //    });
+        //    var content = new StringContent(postData, Encoding.UTF8, "application/json");
+        //    HttpResponseMessage response = await httpClient.PostAsync(url, content);
+        //    //Now process the response
+        //    string body = string.Empty;
+        //    if (response.IsSuccessStatusCode)
+        //    {
+        //        body = await response.Content.ReadAsStringAsync();
+        //    }
+
+        //    return body;
+        //}
+
+        //public async Task<string> BookingAsync(string email, string passKey, string bookingReference, string bookingId, int paymentType)
+        //{
+        //    jwt = await LoginAsync(email, passKey);
+
+        //    var httpClient = new HttpClient();
+
+        //    var url = ApiUrl + "book_slot.php";
+        //    var postData = JsonConvert.SerializeObject(new
+        //    {
+        //        jwt = jwt,
+        //        bookingreference = bookingReference,
+        //        bookingid = bookingId,
+        //        paymenttype = paymentType,
+        //        secret = Secret
+        //    });
+        //    var content = new StringContent(postData, Encoding.UTF8, "application/json");
+        //    HttpResponseMessage response = await httpClient.PostAsync(url, content);
+        //    //Now process the response
+        //    string body = string.Empty;
+        //    if (response.IsSuccessStatusCode)
+        //    {
+        //        body = await response.Content.ReadAsStringAsync();
+        //    }
+
+        //    return body;
+        //}
 
         public async Task<string> CancelBookingAsync(string email, string passKey, string bookingReference, string bookingId)
         {
-            jwt = await LoginAsync(email, passKey);
+            _jwt = await LoginAsync(email, passKey);
 
             var httpClient = new HttpClient();
 
             var url = ApiUrl + "cancel_slot.php";
             var postData = JsonConvert.SerializeObject(new
             {
-                jwt = jwt,
+                jwt = _jwt,
                 bookingreference = bookingReference,
                 bookingid = bookingId,
                 secret = Secret

@@ -5,7 +5,7 @@ namespace Rayna.ApiIntegration.Models.ResponseModels
     public class SupplierTimeSlots
     {
         public string ResourceId { get; set; }  // in case of single id productid save in resourceid
-        public string EventId { get; set; }
+        public string EventId { get; set; } // assign transfer type/paxtype for falcon
         public string TimeSlotId { get; set; }
         public DateTime StratTime { get; set; }
         public DateTime EndTime { get; set; }

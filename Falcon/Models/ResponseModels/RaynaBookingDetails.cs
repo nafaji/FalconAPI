@@ -9,5 +9,10 @@ namespace Rayna.ApiIntegration.Models.ResponseModels
         public string ErrorMessage { get; set; }
         public List<SupplierTicketDetails> SupplierTicketDetails { get; set; }
 
+        public RaynaBookingDetails()
+        {
+            SupplierTicketDetails = new List<SupplierTicketDetails>();
+        }
+
     }
 }
