@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Rayna.ApiIntegration.Models.ResponseModels;
 using Rayna.ApiIntegration.Services;
+using System;
 using System.Threading.Tasks;
 
 namespace Rayna.ApiIntegration.Controllers
@@ -25,5 +26,12 @@ namespace Rayna.ApiIntegration.Controllers
             var results = _vgsService.GetProductListAsync();
             return results;
         }
+
+        //[HttpGet("CheckAvailability")]
+        //public Task<RaynaTimeSlotList> CheckAvailability(DateTime date, string productCode, int noOfPax)
+        //{
+        //    var results = _vgsService.CheckAvailabilityAsync(date, productCode, noOfPax);
+        //    return results;
+        //}
     }
 }
