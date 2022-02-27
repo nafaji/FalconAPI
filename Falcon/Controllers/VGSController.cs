@@ -27,11 +27,11 @@ namespace Rayna.ApiIntegration.Controllers
             return results;
         }
 
-        //[HttpGet("CheckAvailability")]
-        //public Task<RaynaTimeSlotList> CheckAvailability(DateTime date, string productCode, int noOfPax)
-        //{
-        //    var results = _vgsService.CheckAvailabilityAsync(date, productCode, noOfPax);
-        //    return results;
-        //}
+        [HttpGet("CheckAvailability")]
+        public Task<RaynaTimeSlotList> CheckAvailability(DateTime date, string productCode, int noOfPax)
+        {
+            var results = _vgsService.CheckAvailabilityAsync(date, productCode, noOfPax);
+            return results;
+        }
     }
 }

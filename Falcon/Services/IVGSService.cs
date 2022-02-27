@@ -8,7 +8,7 @@ namespace Rayna.ApiIntegration.Services
     {
         public Task<RaynaTourList> GetProductListAsync();
 
-        public Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, int package, int noOfPax);
+        public Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string productCode, int noOfPax);
 
         public Task<string> ReserveAsync(string email, string passKey, DateTime date, int package, string time, int slotId, int numberOfPax, int paxType, string paxPhoneNumber, string bookingReference);
 
