@@ -8,12 +8,10 @@ namespace Rayna.ApiIntegration.Services
     {
         public Task<RaynaTourList> GetProductListAsync();
 
-        public Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string productCode, int noOfPax);
+        public Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string productId, int numberOfPax);
 
-        public Task<string> ReserveAsync(string email, string passKey, DateTime date, int package, string time, int slotId, int numberOfPax, int paxType, string paxPhoneNumber, string bookingReference);
+        public Task<RaynaBookingDetails> BookingAsync(DateTime date, string productId, string time, string timeSlotId, int numberOfPax, string bookingId);
 
-        public Task<string> BookingAsync(string email, string passKey, string bookingReference, string bookingId, int paymentType);
-
-        public Task<string> CancelBookingAsync(string email, string passKey, string bookingReference, string bookingId);
+        public Task<string> CancelBookingAsync(string bookingReference, string bookingId);
     }
 }
