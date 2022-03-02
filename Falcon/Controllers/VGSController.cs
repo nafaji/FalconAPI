@@ -40,5 +40,12 @@ namespace Rayna.ApiIntegration.Controllers
             var results = _vgsService.BookingAsync(date, productId, time, timeSlotId, numberOfPax, bookingId);
             return results;
         }
+
+        [HttpGet("CancelBooking")]
+        public Task<string> CancelBooking(string bookingReference, string bookingId)
+        {
+            var results = _vgsService.CancelBookingAsync(bookingReference, bookingId);
+            return results;
+        }
     }
 }
