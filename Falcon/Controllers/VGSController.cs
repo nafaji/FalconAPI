@@ -28,16 +28,16 @@ namespace Rayna.ApiIntegration.Controllers
         }
 
         [HttpGet("CheckAvailability")]
-        public Task<RaynaTimeSlotList> CheckAvailability(DateTime date, string productId, int noOfPax)
+        public Task<RaynaTimeSlotList> CheckAvailability(DateTime date, string eventId, string productId, int noOfPax)
         {
-            var results = _vgsService.CheckAvailabilityAsync(date, productId, noOfPax);
+            var results = _vgsService.CheckAvailabilityAsync(date, eventId, productId, noOfPax);
             return results;
         }
 
         [HttpGet("Booking")]
-        public Task<RaynaBookingDetails> Booking(DateTime date, string productId, string time, string timeSlotId, int numberOfPax, string bookingId)
+        public Task<RaynaBookingDetails> Booking(DateTime date, string eventId, string productId, string time, string timeSlotId, int numberOfPax, string bookingId)
         {
-            var results = _vgsService.BookingAsync(date, productId, time, timeSlotId, numberOfPax, bookingId);
+            var results = _vgsService.BookingAsync(date, eventId, productId, time, timeSlotId, numberOfPax, bookingId);
             return results;
         }
 
