@@ -293,28 +293,45 @@ namespace Rayna.ApiIntegration.Services
 
     public class VGSShoppingCartResultDto
     {
-        public VGSShoppingCartAnswerDto Answer { get; set; }
+        public VGSShopCartAnswerDto Answer { get; set; }
         public VGSHeaderDto Header { get; set; }
     }
 
-    public class VGSShoppingCartAnswerDto
+    public class VGSShopCartAnswerDto
     {
-        public VGSShoppingCartDto ShopCart { get; set; }
+        public VGSShopCartDto ShopCart { get; set; }
     }
 
-    public class VGSShoppingCartDto
+    public class VGSShopCartDto
     {
         public string ShopCartId { get; set; }
-        public List<VGSShoppingCartItemDto> Items { get; set; }
+        public List<VGSShopCartItemDto> Items { get; set; }
     }
 
-    public class VGSShoppingCartItemDto
+    public class VGSShopCartItemDto
     {
         public string ProductCode { get; set; }
 
         public string ProductName { get; set; }
 
         public int Quantity { get; set; }
+    }
+
+    public class VGSValidateShopCartResultDto
+    {
+        public VGSValidateShopCartAnswerDto Answer { get; set; }
+        public VGSHeaderDto Header { get; set; }
+    }
+
+    public class VGSValidateShopCartAnswerDto
+    {
+        public VGSShopCartDto ShopCart { get; set; }
+        public ValidateShopCartDto ValidateShopCart { get; set; }
+    }
+
+    public class ValidateShopCartDto
+    {
+        public bool RestrictValidPayments { get; set; }
     }
 
     public class VGSService : IVGSService
@@ -331,99 +348,131 @@ namespace Rayna.ApiIntegration.Services
         //private const string Token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJTTlAiLCJpYXQiOjE2MDk0NTkyMDAsImV4cCI6MTY3Mjc5MDQwMCwiY2xpIjoiQVBJIiwid2lkIjoiQUI5NTM5N0YtRjhEOS0zMTI4LTA0Q0EtMDE3RDRDREU1QTU3In0.r8ZSmDObV6rBaAa3QFihkV4TOks6o2CbLNuf2hzH4QQ";
         private const string Token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJTTlAiLCJpYXQiOjE1NTgzODQxMjEsImV4cCI6MTY3Mjc5MDQwMCwiY2xpIjoiQVBJIiwid2lkIjoiQUI5NTM5N0YtRjhEOS0zMTI4LTA0Q0EtMDE3RDRDREU1QTU3In0.yXpHAOikmGErenWD35NSsxhd8l8PDDPm_lC4F33YaNc";
 
-        public async Task<RaynaBookingDetails> BookingAsync(DateTime date, string eventId, string productId, string time, string timeSlotId, int numberOfPax, string bookingId)
+
+        private async Task<VGSShoppingCartResultDto> AddToCartAsync(string productId, string timeSlotId, int numberOfPax, string shopCartId)
+        {
+            try
+            {
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+
+                var url = ApiUrl + "service?format=json&cmd=SHOPCART";
+
+                var product = new
+                {
+                    Product = new
+                    {
+                        ProductId = productId
+                    },
+                    QuantityDelta = numberOfPax,
+                    PerformanceIDs = timeSlotId
+                };
+
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    Header = new
+                    {
+                        WorkstationId = WorkstationId,
+                        Token = Token
+                    },
+                    Request = new
+                    {
+                        Command = "AddToCart",
+                        ShopCartId = string.IsNullOrEmpty(shopCartId) ? string.Empty : shopCartId,
+                        FillApplicablePromoList = false,
+                        AddToCart = new
+                        {
+                            ItemList = new object[] { product }
+                        }
+                    }
+                });
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                string body = string.Empty;
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+                    var vgsShoppingCartResult = JsonConvert.DeserializeObject<VGSShoppingCartResultDto>(body);
+                    return vgsShoppingCartResult;
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        private async Task<string> ValidateShopCartAsync(string sessionId, string shopCartId)
+        {
+            try
+            {
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+
+                var url = ApiUrl + "service?format=json&cmd=SHOPCART";
+
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    Header = new
+                    {
+                        Session = sessionId,
+                        WorkstationId = WorkstationId,
+                        Token = Token
+                    },
+                    Request = new
+                    {
+                        Command = "ValidateShopCart",
+                        ShopCartId = shopCartId,
+                    }
+                });
+
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                string body = string.Empty;
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+                    
+                }
+                return body;
+            }
+            catch(Exception ex)
+            {
+                return string.Empty;
+            }
+        }
+
+        public async Task<RaynaBookingDetails> BookingAsync(DateTime date, string eventId, string productId, string time, string timeSlotId, int numberOfPax, string bookingId, string shopCartId)
         {
             var raynaBookingDetails = new RaynaBookingDetails();
             try
             {
-                var raynaTimeSlotList = await CheckAvailabilityAsync(date, eventId, productId, numberOfPax);
+                var vgsShopCartResult = await AddToCartAsync(productId, timeSlotId, numberOfPax, shopCartId);
 
-                if (raynaTimeSlotList.SupplierTimeSlots.Count() > 0)
+                if (vgsShopCartResult != null)
                 {
-                    var selectedDateTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + time);
-                    var selectedTimeSlot = raynaTimeSlotList.SupplierTimeSlots.SingleOrDefault(s => s.StratTime <= selectedDateTime &&
-                    s.EndTime >= selectedDateTime &&
-                    s.TimeSlotId == timeSlotId);
+                    var isShopCartValidated = await ValidateShopCartAsync(vgsShopCartResult.Header.Session, vgsShopCartResult.Answer.ShopCart.ShopCartId);
 
-                    if (!string.IsNullOrEmpty(selectedTimeSlot.TimeSlotId))
+                    foreach (var vgsShoppingCartItem in vgsShopCartResult.Answer.ShopCart.Items)
                     {
-                        var httpClient = new HttpClient();
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-                        httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Token);
-
-                        var url = ApiUrl + "service?format=json&cmd=SHOPCART";
-
-                        var product = new
-                        {
-                            Product = new
+                        raynaBookingDetails.SupplierTicketDetails.Add(
+                            new SupplierTicketDetails
                             {
-                                ProductId = productId
-                            },
-                            QuantityDelta = numberOfPax,
-                            PerformanceIDs = timeSlotId
-                        };
-
-                        var postData = JsonConvert.SerializeObject(new
-                        {
-                            Header = new
-                            {
-                                WorkstationId = WorkstationId,
-                                Token = Token
-                            },
-                            Request = new
-                            {
-                                Command = "AddToCart",
-                                ShopCartId = string.IsNullOrEmpty(bookingId) ? string.Empty : bookingId,
-                                FillApplicablePromoList = false,
-                                AddToCart = new
-                                {
-                                    ItemList = new object[] { product }
-                                }
-                            }
-                        });
-                        var content = new StringContent(postData, Encoding.UTF8, "application/json");
-                        HttpResponseMessage response = await httpClient.PostAsync(url, content);
-
-                        string body = string.Empty;
-                        if (response.IsSuccessStatusCode)
-                        {
-                            body = await response.Content.ReadAsStringAsync();
-
-                            var vgsShoppingCartResult = JsonConvert.DeserializeObject<VGSShoppingCartResultDto>(body);
-
-
-                            foreach (var vgsShoppingCartItem in vgsShoppingCartResult.Answer.ShopCart.Items)
-                            {
-                                raynaBookingDetails.SupplierTicketDetails.Add(
-                                    new SupplierTicketDetails
-                                    {
-                                        ProductCode = vgsShoppingCartItem.ProductCode,
-                                        ProdctName = vgsShoppingCartItem.ProductName,
-                                        NoOfAdult = vgsShoppingCartItem.Quantity,
-                                        EventId = selectedTimeSlot.EventId,
-                                        StartTime = selectedTimeSlot.StratTime,
-                                        EndTime = selectedTimeSlot.EndTime 
+                                ProductCode = vgsShoppingCartItem.ProductCode,
+                                ProdctName = vgsShoppingCartItem.ProductName,
+                                NoOfAdult = vgsShoppingCartItem.Quantity,
+                                        //EventId = selectedTimeSlot.EventId,
+                                        //StartTime = selectedTimeSlot.StratTime,
+                                        //EndTime = selectedTimeSlot.EndTime
                                     });
-                            }
-                            raynaBookingDetails.SupplierConfirmationNumber = vgsShoppingCartResult.Answer.ShopCart.ShopCartId;
-                            raynaBookingDetails.Status = SuccessStatus;
-                            return raynaBookingDetails;
-                        }
-                        else
-                        {
-                            raynaBookingDetails.Status = FailedStatus;
-                            raynaBookingDetails.ErrorMessage = Failed;
-
-                            return raynaBookingDetails;
-                        }
                     }
-                    else
-                    {
-                        raynaBookingDetails.Status = FailedStatus;
-                        raynaBookingDetails.ErrorMessage = Failed;
-
-                        return raynaBookingDetails;
-                    }
+                    raynaBookingDetails.SupplierConfirmationNumber = vgsShopCartResult.Answer.ShopCart.ShopCartId;
+                    raynaBookingDetails.Status = SuccessStatus;
+                    return raynaBookingDetails;
                 }
                 else
                 {
@@ -757,9 +806,11 @@ namespace Rayna.ApiIntegration.Services
                             {
                                 foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
                                 {
-                                    if (vgsProduct.ProductId == productId && vgsProduct.SeatQuantityFree >= numberOfPax)
+                                    if (vgsProduct.ProductId == productId
+                                        //&& vgsProduct.SeatQuantityFree >= numberOfPax
+                                        )
                                     {
-                                        supplierTimeSlots.Add(new SupplierTimeSlots { EventId = performance.EventId, TimeSlotId = performance.PerformanceId, ResourceId = vgsProduct.ProductId, Available = vgsProduct.SeatQuantityFree, AdultPrice = vgsProduct.DisplayPrice, StratTime = performance.AdmDateTimeFrom, EndTime = performance.AdmDateTimeTo });
+                                        supplierTimeSlots.Add(new SupplierTimeSlots { EventId = performance.EventId, TimeSlotId = performance.PerformanceId, ResourceId = vgsProduct.ProductId, Available = vgsProduct.SeatQuantityFree, AdultPrice = vgsProduct.DisplayPrice, StratTime = performance.DateTimeFrom, EndTime = performance.DateTimeTo });
                                     }
                                 }
                             }
@@ -802,11 +853,9 @@ namespace Rayna.ApiIntegration.Services
             {
                 var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-                //httpClient.DefaultRequestHeaders.Add("Authorization", "Bearer " + Token);
-                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Token);
 
                 var url = ApiUrl + "service?format=json&cmd=CATALOG";
-                //            
+                
                 var postData = JsonConvert.SerializeObject(new
                 {
                     Header = new
@@ -844,16 +893,12 @@ namespace Rayna.ApiIntegration.Services
 
                     if (eventTypes.Count > 0)
                     {
-                        //eventTypes = eventTypes.Take(1).ToList();
-
                         var fromDate = DateTime.Now.Date;
-                        var toDate = DateTime.Now.Date.AddDays(1);
 
                         foreach (string eventTypeId in eventTypes)
                         {
                             url = ApiUrl + "service?format=json&cmd=PERFORMANCE";
 
-                            //            
                             postData = JsonConvert.SerializeObject(new
                             {
                                 Header = new
@@ -899,53 +944,30 @@ namespace Rayna.ApiIntegration.Services
                         }
                         if (performances.Count > 0)
                         {
+                            List<Task<List<SupplierTourList>>> productTaskList = new List<Task<List<SupplierTourList>>>();
+
                             foreach (var performance in performances)
                             {
-                                postData = JsonConvert.SerializeObject(new
+                                productTaskList.Add(GetSellableProductsAsync(url, performance));
+                            }
+
+                            await Task.WhenAll(productTaskList);
+
+                            foreach (var productTask in productTaskList)
+                            {
+                                if (productTask.Result.Count() > 0)
                                 {
-                                    Header = new
-                                    {
-                                        WorkstationId = WorkstationId,
-                                        Token = Token
-                                    },
-                                    Request = new
-                                    {
-                                        Command = "GetSellableProducts",
-                                        GetSellableProducts = new
-                                        {
-                                            PerformanceId = performance.PerformanceId,
-                                            SaleChannelId = SaleChannelId
-                                        }
-                                    }
-                                });
-
-                                content = new StringContent(postData, Encoding.UTF8, "application/json");
-                                response = await httpClient.PostAsync(url, content);
-
-                                if (response.IsSuccessStatusCode)
-                                {
-                                    body = await response.Content.ReadAsStringAsync();
-                                    var vgsProductResult = JsonConvert.DeserializeObject<VGSProductResultDto>(body);
-
-                                    if (vgsProductResult.Answer.GetSellableProducts.ProductList != null)
-                                    {
-                                        foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
-                                        {
-                                            var currentProduct = supplierTourList.FirstOrDefault(p => p.ResourceId == vgsProduct.ProductId && p.ProductCode == vgsProduct.ProductCode && p.ProductName == vgsProduct.ProductName && p.ProductPrice == vgsProduct.DisplayPrice.ToString() && p.ProductDescription == vgsProduct.ProductNameExt);
-                                            if (currentProduct == null)
-                                            {
-                                                supplierTourList.Add(new SupplierTourList { EventId = performance.EventId, ProductCode = vgsProduct.ProductCode, ProductName = vgsProduct.ProductName, ProductPrice = vgsProduct.DisplayPrice.ToString(), ProductDescription = vgsProduct.ProductNameExt, ResourceId = vgsProduct.ProductId });
-                                            }
-                                        }
-                                    }
+                                    supplierTourList.AddRange(productTask.Result);
                                 }
                             }
                         }
 
+                        
+
                         if (supplierTourList.Count > 0)
                         {
                             raynaTourList.Status = SuccessStatus;
-                            raynaTourList.SupplierTourList = supplierTourList;
+                            raynaTourList.SupplierTourList = supplierTourList.GroupBy(s => new { s.ProductCode, s.ProductName, s.ProductPrice, s.ProductTax, s.IsTimeSlot, s.EventId, s.ResourceId}).Select(g => g.First()).ToList();
 
                             return raynaTourList;
                         }
@@ -970,5 +992,59 @@ namespace Rayna.ApiIntegration.Services
                 return raynaTourList;
             }
         }
+
+        private async Task<List<SupplierTourList>> GetSellableProductsAsync(string url, VGSPerformanceDto performance)
+        {
+            var supplierTourList = new List<SupplierTourList>();
+            try
+            {
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    Header = new
+                    {
+                        WorkstationId = WorkstationId,
+                        Token = Token
+                    },
+                    Request = new
+                    {
+                        Command = "GetSellableProducts",
+                        GetSellableProducts = new
+                        {
+                            PerformanceId = performance.PerformanceId,
+                            SaleChannelId = SaleChannelId
+                        }
+                    }
+                });
+
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                string body = string.Empty;
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+                    var vgsProductResult = JsonConvert.DeserializeObject<VGSProductResultDto>(body);
+
+                    if (vgsProductResult.Answer.GetSellableProducts.ProductList != null)
+                    {
+                        foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
+                        {
+                            supplierTourList.Add(new SupplierTourList { EventId = performance.EventId, ProductCode = vgsProduct.ProductCode, ProductName = vgsProduct.ProductName, ProductPrice = vgsProduct.DisplayPrice.ToString(), ProductDescription = vgsProduct.ProductNameExt, ResourceId = vgsProduct.ProductId });
+                        }
+                    }
+                }
+                return supplierTourList;
+            }
+            catch(Exception ex)
+            {
+                return supplierTourList;
+            }
+        }
     }
+
+    
 }

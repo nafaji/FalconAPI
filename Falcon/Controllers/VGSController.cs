@@ -37,7 +37,7 @@ namespace Rayna.ApiIntegration.Controllers
         [HttpGet("Booking")]
         public Task<RaynaBookingDetails> Booking(DateTime date, string eventId, string productId, string time, string timeSlotId, int numberOfPax, string bookingId)
         {
-            var results = _vgsService.BookingAsync(date, eventId, productId, time, timeSlotId, numberOfPax, bookingId);
+            var results = _vgsService.BookingAsync(date, eventId, productId, time, timeSlotId, numberOfPax, bookingId, string.Empty);
             return results;
         }
 
