@@ -30,7 +30,7 @@ namespace Rayna.ApiIntegration.Controllers
         [HttpGet("CheckAvailability")]
         public Task<RaynaTimeSlotList> CheckAvailability(DateTime date, string eventId, string productId, int noOfPax)
         {
-            var results = _vgsService.CheckAvailabilityAsync(date, eventId, productId, noOfPax);
+            var results = _vgsService.CheckAvailabilityAsync(eventId, date, string.Empty, productId, noOfPax);
             return results;
         }
 

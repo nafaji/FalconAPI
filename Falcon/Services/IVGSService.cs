@@ -10,7 +10,7 @@ namespace Rayna.ApiIntegration.Services
 
         //public Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string productId, int numberOfPax);
 
-        public Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string eventId, string productId, int numberOfPax);
+        public Task<RaynaTimeSlotList> CheckAvailabilityAsync(string eventId, DateTime date, string time, string productId, int numberOfPax);
 
         public Task<RaynaBookingDetails> BookingAsync(DateTime date, string eventId, string productId, string time, string timeSlotId, int numberOfPax, string bookingId, string shopCartId);
 

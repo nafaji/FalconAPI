@@ -348,6 +348,231 @@ namespace Rayna.ApiIntegration.Services
         //private const string Token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJTTlAiLCJpYXQiOjE2MDk0NTkyMDAsImV4cCI6MTY3Mjc5MDQwMCwiY2xpIjoiQVBJIiwid2lkIjoiQUI5NTM5N0YtRjhEOS0zMTI4LTA0Q0EtMDE3RDRDREU1QTU3In0.r8ZSmDObV6rBaAa3QFihkV4TOks6o2CbLNuf2hzH4QQ";
         private const string Token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJTTlAiLCJpYXQiOjE1NTgzODQxMjEsImV4cCI6MTY3Mjc5MDQwMCwiY2xpIjoiQVBJIiwid2lkIjoiQUI5NTM5N0YtRjhEOS0zMTI4LTA0Q0EtMDE3RDRDREU1QTU3In0.yXpHAOikmGErenWD35NSsxhd8l8PDDPm_lC4F33YaNc";
 
+        private async Task<List<string>> GetCatalogsAsync()
+        {
+            var url = ApiUrl + "service?format=json&cmd=CATALOG";
+            List<string> eventTypes = new List<string>();
+
+            try
+            {
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    Header = new
+                    {
+                        WorkstationId = WorkstationId,
+                        Token = Token
+                    },
+                    Request = new
+                    {
+                        Command = "LoadEntCatalog",
+                        LoadEntCatalog = new
+                        {
+                            CatalogId = CatalogId
+                        }
+                    }
+                });
+
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                string body = string.Empty;
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+                    var vgsCatalogResult = JsonConvert.DeserializeObject<VGSCatalogResultDto>(body);
+
+                    foreach (VGSNodeDto productFamily in vgsCatalogResult.Answer.LoadEntCatalog.Catalog.Nodes)
+                    {
+                        foreach (var eventNode in productFamily.Nodes)
+                        {
+                            if (!eventTypes.Contains(eventNode.EntityId))
+                                eventTypes.Add(eventNode.EntityId);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return eventTypes;
+            }
+
+            return eventTypes;
+        }
+
+        private async Task<List<VGSPerformanceDto>> GetPerformancesAsync(string eventTypeId, DateTime fromDate, string time)
+        {
+            var url = ApiUrl + "service?format=json&cmd=PERFORMANCE";
+            List<VGSPerformanceDto> performances = new List<VGSPerformanceDto>();
+            try
+            {
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    Header = new
+                    {
+                        WorkstationId = WorkstationId,
+                        Token = Token
+                    },
+                    Request = new
+                    {
+                        Command = "Search",
+                        Search = new
+                        {
+                            SearchRecap = new { PagePos = 1, RecordPerPage = 999 },
+                            EventId = eventTypeId,
+                            FromDateTime = fromDate.ToString("yyyy-MM-dd") + (string.IsNullOrEmpty(time) ? "T00:00:00" : "T" + time),
+                            ToDateTime = fromDate.ToString("yyyy-MM-dd") + "T23:59:59",
+                            SellableOnly = "true"
+                        }
+                    }
+                });
+
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                string body = string.Empty;
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+                    var vgsPerformanceResult = JsonConvert.DeserializeObject<VGSPerformanceResultDto>(body);
+
+                    if (vgsPerformanceResult.Answer.Search.PerformanceList != null)
+                    {
+                        foreach (var performance in vgsPerformanceResult.Answer.Search.PerformanceList)
+                        {
+                            performances.Add(new VGSPerformanceDto
+                            {
+                                EventId = performance.EventId,
+                                EventName = performance.EventName,
+                                PerformanceId = performance.PerformanceId,
+                                PerformanceDesc = performance.PerformanceDesc,
+                                DateTimeFrom = performance.DateTimeFrom,
+                                DateTimeTo = performance.DateTimeTo,
+                                AdmDateTimeFrom = performance.AdmDateTimeFrom,
+                                AdmDateTimeTo = performance.AdmDateTimeTo
+                            });
+                        }
+                    }
+                }
+
+                return performances;
+            }
+            catch (Exception ex)
+            {
+                return performances;
+            }
+        }
+
+        private async Task<List<SupplierTourList>> GetSellableProductsAsync(VGSPerformanceDto performance)
+        {
+            var url = ApiUrl + "service?format=json&cmd=PERFORMANCE";
+            var supplierTourList = new List<SupplierTourList>();
+            try
+            {
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    Header = new
+                    {
+                        WorkstationId = WorkstationId,
+                        Token = Token
+                    },
+                    Request = new
+                    {
+                        Command = "GetSellableProducts",
+                        GetSellableProducts = new
+                        {
+                            PerformanceId = performance.PerformanceId,
+                            SaleChannelId = SaleChannelId
+                        }
+                    }
+                });
+
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                string body = string.Empty;
+
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+                    var vgsProductResult = JsonConvert.DeserializeObject<VGSProductResultDto>(body);
+
+                    if (vgsProductResult.Answer.GetSellableProducts.ProductList != null)
+                    {
+                        foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
+                        {
+                            supplierTourList.Add(new SupplierTourList { EventId = performance.EventId, ProductCode = vgsProduct.ProductCode, ProductName = vgsProduct.ProductName, ProductPrice = vgsProduct.DisplayPrice.ToString(), ProductDescription = vgsProduct.ProductNameExt, ResourceId = vgsProduct.ProductId });
+                        }
+                    }
+                }
+                return supplierTourList;
+            }
+            catch (Exception ex)
+            {
+                return supplierTourList;
+            }
+        }
+
+        private async Task<List<SupplierTimeSlots>> GetTimeSlotsOfSellableProductAsync(VGSPerformanceDto performance, string productId, int numberOfPax)
+        {
+            var url = ApiUrl + "service?format=json&cmd=PERFORMANCE";
+            var supplierTimeSlots = new List<SupplierTimeSlots>();
+            try
+            {
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+
+                var postData = JsonConvert.SerializeObject(new
+                {
+                    Header = new
+                    {
+                        WorkstationId = WorkstationId,
+                        Token = Token
+                    },
+                    Request = new
+                    {
+                        Command = "GetSellableProducts",
+                        GetSellableProducts = new
+                        {
+                            PerformanceId = performance.PerformanceId,
+                            SaleChannelId = SaleChannelId
+                        }
+                    }
+                });
+
+                var content = new StringContent(postData, Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                string body = string.Empty;
+
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+                    var vgsProductResult = JsonConvert.DeserializeObject<VGSProductResultDto>(body);
+
+                    if (vgsProductResult.Answer.GetSellableProducts.ProductList != null)
+                    {
+                        foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList.Where(p=>p.ProductId == productId && p.SeatQuantityFree >= numberOfPax))
+                        {
+                            supplierTimeSlots.Add(new SupplierTimeSlots { ResourceId = vgsProduct.ProductId, EventId = performance.EventId, TimeSlotId = performance.PerformanceId, StratTime = performance.DateTimeFrom, EndTime = performance.DateTimeTo, Available = vgsProduct.SeatQuantityFree, AdultPrice = vgsProduct.DisplayPrice });
+                        }
+                    }
+                }
+                return supplierTimeSlots;
+            }
+            catch (Exception ex)
+            {
+                return supplierTimeSlots;
+            }
+        }
 
         private async Task<VGSShoppingCartResultDto> AddToCartAsync(string productId, string timeSlotId, int numberOfPax, string shopCartId)
         {
@@ -529,291 +754,133 @@ namespace Rayna.ApiIntegration.Services
             return body;
         }
 
-        //public async Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string productId, int numberOfPax)
-        //{
-        //    var raynaTimeSlotList = new RaynaTimeSlotList();
-        //    var supplierTimeSlots = new List<SupplierTimeSlots>();
+        public async Task<RaynaTourList> GetProductListAsync()
+        {
+            var raynaTourList = new RaynaTourList();
+            var supplierTourList = new List<SupplierTourList>();
 
-        //    List<string> eventTypes = new List<string>();
-        //    List<VGSPerformanceDto> performances = new List<VGSPerformanceDto>();
+            List<string> eventTypes = new List<string>();
+            List<VGSPerformanceDto> performances = new List<VGSPerformanceDto>();
+            List<VGSPerformanceDto> allPerformances = new List<VGSPerformanceDto>();
 
-        //    try
-        //    {
-        //        var httpClient = new HttpClient();
-        //        httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-        //        httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Token);
+            try
+            {
+                eventTypes = await GetCatalogsAsync();
 
-        //        var url = ApiUrl + "service?format=json&cmd=CATALOG";
+                if (eventTypes.Count > 0)
+                {
+                    var fromDate = DateTime.Now.Date;
+                    List<Task<List<VGSPerformanceDto>>> performanceTaskList = new List<Task<List<VGSPerformanceDto>>>();
 
-        //        var postData = JsonConvert.SerializeObject(new
-        //        {
-        //            Header = new
-        //            {
-        //                WorkstationId = WorkstationId,
-        //                Token = Token
-        //            },
-        //            Request = new
-        //            {
-        //                Command = "LoadEntCatalog",
-        //                LoadEntCatalog = new
-        //                {
-        //                    CatalogId = CatalogId
-        //                }
-        //            }
-        //        });
+                    foreach (string eventTypeId in eventTypes)
+                    {
+                        performanceTaskList.Add(GetPerformancesAsync(eventTypeId, DateTime.Now.AddDays(1), string.Empty));
+                    }
 
-        //        var content = new StringContent(postData, Encoding.UTF8, "application/json");
-        //        HttpResponseMessage response = await httpClient.PostAsync(url, content);
+                    await Task.WhenAll(performanceTaskList);
 
+                    foreach (var performanceTask in performanceTaskList)
+                    {
+                        allPerformances.AddRange(performanceTask.Result);
+                    }
 
-        //        string body = string.Empty;
-        //        if (response.IsSuccessStatusCode)
-        //        {
-        //            body = await response.Content.ReadAsStringAsync();
-        //            var vgsCatalogResult = JsonConvert.DeserializeObject<VGSCatalogResultDto>(body);
+                    performances = allPerformances.GroupBy(p => new { p.EventId, p.PerformanceId, p.DateTimeFrom, p.DateTimeTo }).Select(g => g.First()).ToList();
 
-        //            foreach (VGSNodeDto productFamily in vgsCatalogResult.Answer.LoadEntCatalog.Catalog.Nodes)
-        //            {
-        //                foreach (var eventNode in productFamily.Nodes)
-        //                {
-        //                    if (!eventTypes.Contains(eventNode.EntityId))
-        //                        eventTypes.Add(eventNode.EntityId);
-        //                }
-        //            }
+                    if (performances.Count > 0)
+                    {
+                        List<Task<List<SupplierTourList>>> productTaskList = new List<Task<List<SupplierTourList>>>();
 
-        //            if (eventTypes.Count > 0)
-        //            {
-        //                var fromDate = date;
+                        foreach (var performance in performances)
+                        {
+                            productTaskList.Add(GetSellableProductsAsync(performance));
+                        }
 
-        //                foreach (string eventTypeId in eventTypes)
-        //                {
-        //                    url = ApiUrl + "service?format=json&cmd=PERFORMANCE";
+                        await Task.WhenAll(productTaskList);
 
-        //                    postData = JsonConvert.SerializeObject(new
-        //                    {
-        //                        Header = new
-        //                        {
-        //                            WorkstationId = WorkstationId,
-        //                            Token = Token
-        //                        },
-        //                        Request = new
-        //                        {
-        //                            Command = "Search",
-        //                            Search = new
-        //                            {
-        //                                SearchRecap = new { PagePos = 1, RecordPerPage = 999 },
-        //                                EventId = eventTypeId,
-        //                                FromDateTime = fromDate.ToString("yyyy-MM-dd") + "T00:00:00",
-        //                                ToDateTime = fromDate.ToString("yyyy-MM-dd") + "T23:59:59",
-        //                                SellableOnly = "true"
-        //                            }
-        //                        }
-        //                    });
+                        foreach (var productTask in productTaskList)
+                        {
+                            if (productTask.Result.Count() > 0)
+                            {
+                                supplierTourList.AddRange(productTask.Result);
+                            }
+                        }
+                    }
 
-        //                    content = new StringContent(postData, Encoding.UTF8, "application/json");
-        //                    response = await httpClient.PostAsync(url, content);
+                    if (supplierTourList.Count > 0)
+                    {
+                        raynaTourList.Status = SuccessStatus;
+                        raynaTourList.SupplierTourList = supplierTourList.GroupBy(s => new { s.ProductCode, s.ProductName, s.ProductPrice, s.ProductTax, s.IsTimeSlot, s.EventId, s.ResourceId }).Select(g => g.First()).ToList();
 
+                        return raynaTourList;
+                    }
+                }
 
-        //                    body = string.Empty;
-        //                    if (response.IsSuccessStatusCode)
-        //                    {
-        //                        body = await response.Content.ReadAsStringAsync();
-        //                        var vgsPerformanceResult = JsonConvert.DeserializeObject<VGSPerformanceResultDto>(body);
+                raynaTourList.Status = FailedStatus;
+                raynaTourList.ErrorMessage = Failed;
 
-        //                        if (vgsPerformanceResult.Answer.Search.PerformanceList != null)
-        //                        {
-        //                            foreach (var performance in vgsPerformanceResult.Answer.Search.PerformanceList)
-        //                            {
-        //                                var currentPerformance = performances.FirstOrDefault(p => p.PerformanceId == performance.PerformanceId);
-        //                                if (currentPerformance == null)
-        //                                {
-        //                                    performances.Add(new VGSPerformanceDto { EventId = performance.EventId, EventName = performance.EventName, PerformanceId = performance.PerformanceId, PerformanceDesc = performance.PerformanceDesc, AdmDateTimeFrom = performance.AdmDateTimeFrom, AdmDateTimeTo = performance.AdmDateTimeTo, DateTimeFrom = performance.DateTimeFrom, DateTimeTo = performance.DateTimeTo });
-        //                                }
-        //                            }
-        //                        }
-        //                    }
-        //                }
+                return raynaTourList;
+            }
+            catch (Exception ex)
+            {
+                raynaTourList.Status = FailedStatus;
+                raynaTourList.ErrorMessage = ex.Message;
 
-        //                if (performances.Count > 0)
-        //                {
-        //                    foreach (var performance in performances)
-        //                    {
-        //                        postData = JsonConvert.SerializeObject(new
-        //                        {
-        //                            Header = new
-        //                            {
-        //                                WorkstationId = WorkstationId,
-        //                                Token = Token
-        //                            },
-        //                            Request = new
-        //                            {
-        //                                Command = "GetSellableProducts",
-        //                                GetSellableProducts = new
-        //                                {
-        //                                    PerformanceId = performance.PerformanceId,
-        //                                    SaleChannelId = SaleChannelId
-        //                                }
-        //                            }
-        //                        });
+                return raynaTourList;
+            }
+        }
 
-        //                        content = new StringContent(postData, Encoding.UTF8, "application/json");
-        //                        response = await httpClient.PostAsync(url, content);
-
-        //                        if (response.IsSuccessStatusCode)
-        //                        {
-        //                            body = await response.Content.ReadAsStringAsync();
-        //                            var vgsProductResult = JsonConvert.DeserializeObject<VGSProductResultDto>(body);
-
-        //                            if (vgsProductResult.Answer.GetSellableProducts.ProductList != null)
-        //                            {
-        //                                foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
-        //                                {
-        //                                    if (vgsProduct.ProductId == productId && vgsProduct.SeatQuantityFree >= numberOfPax)
-        //                                    {
-        //                                        supplierTimeSlots.Add(new SupplierTimeSlots { EventId = performance.EventId, TimeSlotId = performance.PerformanceId, ResourceId = vgsProduct.ProductId, Available = vgsProduct.SeatQuantityFree, AdultPrice = vgsProduct.DisplayPrice, StratTime = performance.AdmDateTimeFrom, EndTime = performance.AdmDateTimeTo });
-        //                                    }
-        //                                }
-        //                            }
-        //                        }
-        //                    }
-        //                }
-
-        //                if (supplierTimeSlots.Count > 0)
-        //                {
-        //                    raynaTimeSlotList.Status = SuccessStatus;
-        //                    raynaTimeSlotList.SupplierTimeSlots = supplierTimeSlots;
-
-        //                    return raynaTimeSlotList;
-        //                }
-        //            }
-
-        //            raynaTimeSlotList.Status = FailedStatus;
-        //            raynaTimeSlotList.ErrorMessage = Failed;
-
-        //            return raynaTimeSlotList;
-        //        }
-
-
-        //        raynaTimeSlotList.Status = FailedStatus;
-        //        raynaTimeSlotList.ErrorMessage = Failed;
-
-        //        return raynaTimeSlotList;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        raynaTimeSlotList.Status = FailedStatus;
-        //        raynaTimeSlotList.ErrorMessage = ex.Message;
-
-        //        return raynaTimeSlotList;
-        //    }
-        //}
-
-        public async Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string eventId, string productId, int numberOfPax)
+        public async Task<RaynaTimeSlotList> CheckAvailabilityAsync(string eventId, DateTime date, string time, string productId, int numberOfPax)
         {
             var raynaTimeSlotList = new RaynaTimeSlotList();
             var supplierTimeSlots = new List<SupplierTimeSlots>();
 
             List<string> eventTypes = new List<string>();
             List<VGSPerformanceDto> performances = new List<VGSPerformanceDto>();
+            List<VGSPerformanceDto> allPerformances = new List<VGSPerformanceDto>();
 
             try
             {
-                var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Token);
+                if (string.IsNullOrEmpty(eventId))
+                    eventTypes = await GetCatalogsAsync();
+                else
+                    eventTypes.Add(eventId);
 
-                string body = string.Empty;
-                var fromDate = date;
-
-
-                var url = ApiUrl + "service?format=json&cmd=PERFORMANCE";
-
-                var postData = JsonConvert.SerializeObject(new
+                if (eventTypes.Count() > 0)
                 {
-                    Header = new
+                    var fromDate = date;
+                    List<Task<List<VGSPerformanceDto>>> performanceTaskList = new List<Task<List<VGSPerformanceDto>>>();
+
+                    foreach (string eventTypeId in eventTypes)
                     {
-                        WorkstationId = WorkstationId,
-                        Token = Token
-                    },
-                    Request = new
-                    {
-                        Command = "Search",
-                        Search = new
-                        {
-                            SearchRecap = new { PagePos = 1, RecordPerPage = 999 },
-                            EventId = eventId,
-                            FromDateTime = fromDate.ToString("yyyy-MM-dd") + "T00:00:00",
-                            ToDateTime = fromDate.ToString("yyyy-MM-dd") + "T23:59:59",
-                            SellableOnly = "true"
-                        }
+                        performanceTaskList.Add(GetPerformancesAsync(eventTypeId, fromDate, time));
                     }
-                });
 
-                var content = new StringContent(postData, Encoding.UTF8, "application/json");
-                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+                    await Task.WhenAll(performanceTaskList);
 
-                body = string.Empty;
-                if (response.IsSuccessStatusCode)
-                {
-                    body = await response.Content.ReadAsStringAsync();
-                    var vgsPerformanceResult = JsonConvert.DeserializeObject<VGSPerformanceResultDto>(body);
-
-                    if (vgsPerformanceResult.Answer.Search.PerformanceList != null)
+                    foreach (var performanceTask in performanceTaskList)
                     {
-                        foreach (var performance in vgsPerformanceResult.Answer.Search.PerformanceList)
-                        {
-                            var currentPerformance = performances.FirstOrDefault(p => p.PerformanceId == performance.PerformanceId);
-                            if (currentPerformance == null)
-                            {
-                                performances.Add(new VGSPerformanceDto { EventId = performance.EventId, EventName = performance.EventName, PerformanceId = performance.PerformanceId, PerformanceDesc = performance.PerformanceDesc, AdmDateTimeFrom = performance.AdmDateTimeFrom, AdmDateTimeTo = performance.AdmDateTimeTo, DateTimeFrom = performance.DateTimeFrom, DateTimeTo = performance.DateTimeTo });
-                            }
-                        }
+                        allPerformances.AddRange(performanceTask.Result);
                     }
+
+                    performances = allPerformances.GroupBy(p => new { p.EventId, p.PerformanceId, p.DateTimeFrom, p.DateTimeTo }).Select(g => g.First()).ToList();
                 }
-
 
                 if (performances.Count > 0)
                 {
+                    List<Task<List<SupplierTimeSlots>>> productTimeSlotTaskList = new List<Task<List<SupplierTimeSlots>>>();
+
                     foreach (var performance in performances)
                     {
-                        postData = JsonConvert.SerializeObject(new
+                        productTimeSlotTaskList.Add(GetTimeSlotsOfSellableProductAsync(performance, productId, numberOfPax));
+                    }
+
+                    await Task.WhenAll(productTimeSlotTaskList);
+
+                    foreach (var productTimeSlotTask in productTimeSlotTaskList)
+                    {
+                        if (productTimeSlotTask.Result.Count() > 0)
                         {
-                            Header = new
-                            {
-                                WorkstationId = WorkstationId,
-                                Token = Token
-                            },
-                            Request = new
-                            {
-                                Command = "GetSellableProducts",
-                                GetSellableProducts = new
-                                {
-                                    PerformanceId = performance.PerformanceId,
-                                    SaleChannelId = SaleChannelId
-                                }
-                            }
-                        });
-
-                        content = new StringContent(postData, Encoding.UTF8, "application/json");
-                        response = await httpClient.PostAsync(url, content);
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            body = await response.Content.ReadAsStringAsync();
-                            var vgsProductResult = JsonConvert.DeserializeObject<VGSProductResultDto>(body);
-
-                            if (vgsProductResult.Answer.GetSellableProducts.ProductList != null)
-                            {
-                                foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
-                                {
-                                    if (vgsProduct.ProductId == productId
-                                        //&& vgsProduct.SeatQuantityFree >= numberOfPax
-                                        )
-                                    {
-                                        supplierTimeSlots.Add(new SupplierTimeSlots { EventId = performance.EventId, TimeSlotId = performance.PerformanceId, ResourceId = vgsProduct.ProductId, Available = vgsProduct.SeatQuantityFree, AdultPrice = vgsProduct.DisplayPrice, StratTime = performance.DateTimeFrom, EndTime = performance.DateTimeTo });
-                                    }
-                                }
-                            }
+                            supplierTimeSlots.AddRange(productTimeSlotTask.Result);
                         }
                     }
                 }
@@ -821,7 +888,7 @@ namespace Rayna.ApiIntegration.Services
                 if (supplierTimeSlots.Count > 0)
                 {
                     raynaTimeSlotList.Status = SuccessStatus;
-                    raynaTimeSlotList.SupplierTimeSlots = supplierTimeSlots;
+                    raynaTimeSlotList.SupplierTimeSlots = supplierTimeSlots.GroupBy(s => new { s.EventId, s.TimeSlotId, s.ResourceId, s.StratTime, s.EndTime, s.Available, s.AdultPrice }).Select(g => g.First()).ToList();
 
                     return raynaTimeSlotList;
                 }
@@ -840,211 +907,5 @@ namespace Rayna.ApiIntegration.Services
                 return raynaTimeSlotList;
             }
         }
-
-        public async Task<RaynaTourList> GetProductListAsync()
-        {
-            var raynaTourList = new RaynaTourList();
-            var supplierTourList = new List<SupplierTourList>();
-
-            List<string> eventTypes = new List<string>();
-            List<VGSPerformanceDto> performances = new List<VGSPerformanceDto>();
-
-            try
-            {
-                var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-
-                var url = ApiUrl + "service?format=json&cmd=CATALOG";
-                
-                var postData = JsonConvert.SerializeObject(new
-                {
-                    Header = new
-                    {
-                        WorkstationId = WorkstationId,
-                        Token = Token
-                    },
-                    Request = new
-                    {
-                        Command = "LoadEntCatalog",
-                        LoadEntCatalog = new
-                        {
-                            CatalogId = CatalogId
-                        }
-                    }
-                });
-
-                var content = new StringContent(postData, Encoding.UTF8, "application/json");
-                HttpResponseMessage response = await httpClient.PostAsync(url, content);
-
-                string body = string.Empty;
-                if (response.IsSuccessStatusCode)
-                {
-                    body = await response.Content.ReadAsStringAsync();
-                    var vgsCatalogResult = JsonConvert.DeserializeObject<VGSCatalogResultDto>(body);
-
-                    foreach (VGSNodeDto productFamily in vgsCatalogResult.Answer.LoadEntCatalog.Catalog.Nodes)
-                    {
-                        foreach (var eventNode in productFamily.Nodes)
-                        {
-                            if (!eventTypes.Contains(eventNode.EntityId))
-                                eventTypes.Add(eventNode.EntityId);
-                        }
-                    }
-
-                    if (eventTypes.Count > 0)
-                    {
-                        var fromDate = DateTime.Now.Date;
-
-                        foreach (string eventTypeId in eventTypes)
-                        {
-                            url = ApiUrl + "service?format=json&cmd=PERFORMANCE";
-
-                            postData = JsonConvert.SerializeObject(new
-                            {
-                                Header = new
-                                {
-                                    WorkstationId = WorkstationId,
-                                    Token = Token
-                                },
-                                Request = new
-                                {
-                                    Command = "Search",
-                                    Search = new
-                                    {
-                                        SearchRecap = new { PagePos = 1, RecordPerPage = 999 },
-                                        EventId = eventTypeId,
-                                        FromDateTime = fromDate.ToString("yyyy-MM-dd") + "T00:00:00",
-                                        ToDateTime = fromDate.ToString("yyyy-MM-dd") + "T23:59:59",
-                                        SellableOnly = "true"
-                                    }
-                                }
-                            });
-
-                            content = new StringContent(postData, Encoding.UTF8, "application/json");
-                            response = await httpClient.PostAsync(url, content);
-
-                            body = string.Empty;
-                            if (response.IsSuccessStatusCode)
-                            {
-                                body = await response.Content.ReadAsStringAsync();
-                                var vgsPerformanceResult = JsonConvert.DeserializeObject<VGSPerformanceResultDto>(body);
-
-                                if (vgsPerformanceResult.Answer.Search.PerformanceList != null)
-                                {
-                                    foreach (var performance in vgsPerformanceResult.Answer.Search.PerformanceList)
-                                    {
-                                        var currentPerformance = performances.FirstOrDefault(p => p.PerformanceId == performance.PerformanceId);
-                                        if (currentPerformance == null)
-                                        {
-                                            performances.Add(new VGSPerformanceDto { EventId = performance.EventId, EventName = performance.EventName, PerformanceId = performance.PerformanceId, PerformanceDesc = performance.PerformanceDesc });
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (performances.Count > 0)
-                        {
-                            List<Task<List<SupplierTourList>>> productTaskList = new List<Task<List<SupplierTourList>>>();
-
-                            foreach (var performance in performances)
-                            {
-                                productTaskList.Add(GetSellableProductsAsync(url, performance));
-                            }
-
-                            await Task.WhenAll(productTaskList);
-
-                            foreach (var productTask in productTaskList)
-                            {
-                                if (productTask.Result.Count() > 0)
-                                {
-                                    supplierTourList.AddRange(productTask.Result);
-                                }
-                            }
-                        }
-
-                        
-
-                        if (supplierTourList.Count > 0)
-                        {
-                            raynaTourList.Status = SuccessStatus;
-                            raynaTourList.SupplierTourList = supplierTourList.GroupBy(s => new { s.ProductCode, s.ProductName, s.ProductPrice, s.ProductTax, s.IsTimeSlot, s.EventId, s.ResourceId}).Select(g => g.First()).ToList();
-
-                            return raynaTourList;
-                        }
-                    }
-
-                    raynaTourList.Status = FailedStatus;
-                    raynaTourList.ErrorMessage = Failed;
-
-                    return raynaTourList;
-                }
-
-                raynaTourList.Status = FailedStatus;
-                raynaTourList.ErrorMessage = Failed;
-
-                return raynaTourList;
-            }
-            catch (Exception ex)
-            {
-                raynaTourList.Status = FailedStatus;
-                raynaTourList.ErrorMessage = ex.Message;
-
-                return raynaTourList;
-            }
-        }
-
-        private async Task<List<SupplierTourList>> GetSellableProductsAsync(string url, VGSPerformanceDto performance)
-        {
-            var supplierTourList = new List<SupplierTourList>();
-            try
-            {
-                var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
-
-                var postData = JsonConvert.SerializeObject(new
-                {
-                    Header = new
-                    {
-                        WorkstationId = WorkstationId,
-                        Token = Token
-                    },
-                    Request = new
-                    {
-                        Command = "GetSellableProducts",
-                        GetSellableProducts = new
-                        {
-                            PerformanceId = performance.PerformanceId,
-                            SaleChannelId = SaleChannelId
-                        }
-                    }
-                });
-
-                var content = new StringContent(postData, Encoding.UTF8, "application/json");
-                HttpResponseMessage response = await httpClient.PostAsync(url, content);
-
-                string body = string.Empty;
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    body = await response.Content.ReadAsStringAsync();
-                    var vgsProductResult = JsonConvert.DeserializeObject<VGSProductResultDto>(body);
-
-                    if (vgsProductResult.Answer.GetSellableProducts.ProductList != null)
-                    {
-                        foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
-                        {
-                            supplierTourList.Add(new SupplierTourList { EventId = performance.EventId, ProductCode = vgsProduct.ProductCode, ProductName = vgsProduct.ProductName, ProductPrice = vgsProduct.DisplayPrice.ToString(), ProductDescription = vgsProduct.ProductNameExt, ResourceId = vgsProduct.ProductId });
-                        }
-                    }
-                }
-                return supplierTourList;
-            }
-            catch(Exception ex)
-            {
-                return supplierTourList;
-            }
-        }
     }
-
-    
 }
