@@ -291,7 +291,7 @@ namespace Rayna.ApiIntegration.Services
         public int SeatQuantityMax { get; set; }
     }
 
-    public class VGSShoppingCartResultDto
+    public class VGSShopCartResultDto
     {
         public VGSShopCartAnswerDto Answer { get; set; }
         public VGSHeaderDto Header { get; set; }
@@ -305,6 +305,17 @@ namespace Rayna.ApiIntegration.Services
     public class VGSShopCartDto
     {
         public string ShopCartId { get; set; }
+
+        public int TotalQuantity { get; set; }
+
+        public decimal SubTotal { get; set; }
+
+        public decimal TotalTax { get; set; }
+
+        public decimal TotalAmount { get; set; }
+
+        public decimal TotalDue { get; set; }
+
         public List<VGSShopCartItemDto> Items { get; set; }
     }
 
@@ -509,7 +520,7 @@ namespace Rayna.ApiIntegration.Services
                     {
                         foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
                         {
-                            supplierTourList.Add(new SupplierTourList { EventId = performance.EventId, ProductCode = vgsProduct.ProductCode, ProductName = vgsProduct.ProductName, ProductPrice = vgsProduct.DisplayPrice.ToString(), ProductDescription = vgsProduct.ProductNameExt, ResourceId = vgsProduct.ProductId });
+                            supplierTourList.Add(new SupplierTourList { ProductCode = vgsProduct.ProductCode, ProductName = vgsProduct.ProductName, ProductDescription = vgsProduct.ProductNameExt, ProductPrice = vgsProduct.DisplayPrice.ToString(), IsTimeSlot = true, ResourceId = vgsProduct.ProductId, EventId = performance.EventId });
                         }
                     }
                 }
@@ -574,7 +585,7 @@ namespace Rayna.ApiIntegration.Services
             }
         }
 
-        private async Task<VGSShoppingCartResultDto> AddToCartAsync(string productId, string timeSlotId, int numberOfPax, string shopCartId)
+        private async Task<VGSShopCartResultDto> AddToCartAsync(string productId, string timeSlotId, int numberOfPax, string shopCartId)
         {
             try
             {
@@ -618,7 +629,7 @@ namespace Rayna.ApiIntegration.Services
                 if (response.IsSuccessStatusCode)
                 {
                     body = await response.Content.ReadAsStringAsync();
-                    var vgsShoppingCartResult = JsonConvert.DeserializeObject<VGSShoppingCartResultDto>(body);
+                    var vgsShoppingCartResult = JsonConvert.DeserializeObject<VGSShopCartResultDto>(body);
                     return vgsShoppingCartResult;
                 }
 
@@ -630,7 +641,7 @@ namespace Rayna.ApiIntegration.Services
             }
         }
 
-        private async Task<string> ValidateShopCartAsync(string sessionId, string shopCartId)
+        private async Task<VGSValidateShopCartResultDto> ValidateShopCartAsync(string sessionId, string shopCartId)
         {
             try
             {
@@ -661,13 +672,14 @@ namespace Rayna.ApiIntegration.Services
                 if (response.IsSuccessStatusCode)
                 {
                     body = await response.Content.ReadAsStringAsync();
-                    
+                    var vgsValidateShopCartResult = JsonConvert.DeserializeObject<VGSValidateShopCartResultDto>(body);
+                    return vgsValidateShopCartResult;
                 }
-                return body;
+                return null;
             }
             catch(Exception ex)
             {
-                return string.Empty;
+                return null;
             }
         }
 
@@ -680,7 +692,12 @@ namespace Rayna.ApiIntegration.Services
 
                 if (vgsShopCartResult != null)
                 {
-                    var isShopCartValidated = await ValidateShopCartAsync(vgsShopCartResult.Header.Session, vgsShopCartResult.Answer.ShopCart.ShopCartId);
+                    var vgsValidateShopCartResult = await ValidateShopCartAsync(vgsShopCartResult.Header.Session, vgsShopCartResult.Answer.ShopCart.ShopCartId);
+
+                    if (vgsValidateShopCartResult.Header.StatusCode == 200)
+                    {
+
+                    }
 
                     foreach (var vgsShoppingCartItem in vgsShopCartResult.Answer.ShopCart.Items)
                     {
@@ -769,12 +786,14 @@ namespace Rayna.ApiIntegration.Services
 
                 if (eventTypes.Count > 0)
                 {
-                    var fromDate = DateTime.Now.Date;
+                    var fromDate = DateTime.Now.AddDays(1).Date;
+                    var time = string.Empty;
+
                     List<Task<List<VGSPerformanceDto>>> performanceTaskList = new List<Task<List<VGSPerformanceDto>>>();
 
                     foreach (string eventTypeId in eventTypes)
                     {
-                        performanceTaskList.Add(GetPerformancesAsync(eventTypeId, DateTime.Now.AddDays(1), string.Empty));
+                        performanceTaskList.Add(GetPerformancesAsync(eventTypeId, fromDate, time));
                     }
 
                     await Task.WhenAll(performanceTaskList);
