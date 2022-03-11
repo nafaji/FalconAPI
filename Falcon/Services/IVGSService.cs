@@ -14,6 +14,6 @@ namespace Rayna.ApiIntegration.Services
 
         public Task<RaynaBookingDetails> BookingAsync(DateTime date, string eventId, string productId, string time, string timeSlotId, int numberOfPax, string bookingId, string shopCartId);
 
-        public Task<string> CancelBookingAsync(string bookingReference, string bookingId);
+        public Task<string> CancelBookingAsync(string bookingId, string bookingReference);
     }
 }
