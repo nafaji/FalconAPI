@@ -29,6 +29,7 @@ namespace Rayna.ApiIntegration
 
             services.AddScoped<IFalconService, FalconService>();
             services.AddScoped<IVGSService, VGSService>();
+            services.AddScoped<IGoldenToursService, GoldenToursService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
