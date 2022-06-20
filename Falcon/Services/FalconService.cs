@@ -357,8 +357,8 @@ namespace Rayna.ApiIntegration.Services
                                         }
                                         else
                                         {
-                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, EventId = "1", Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.SharingPrice) ? 0 : Convert.ToDecimal(falconProduct.SharingPrice) });
-                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, EventId = "2", Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.ExclusivePrice) ? 0 : Convert.ToDecimal(falconProduct.ExclusivePrice) });
+                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, EventTypeId = "1", Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.SharingPrice) ? 0 : Convert.ToDecimal(falconProduct.SharingPrice) });
+                                            supplierTimeSlots.Add(new SupplierTimeSlots { TimeSlotId = falconSlot.SlotId, ResourceId = falconSlot.Package, EventTypeId = "2", Available = Convert.ToInt32(falconSlot.AvailableSeats), StratTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.StartTime), EndTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + falconSlot.EndTime), AdultPrice = string.IsNullOrEmpty(falconProduct.ExclusivePrice) ? 0 : Convert.ToDecimal(falconProduct.ExclusivePrice) });
                                         }
                                     }
                                 }
@@ -414,7 +414,7 @@ namespace Rayna.ApiIntegration.Services
                 {
                     var selectedDateTime = Convert.ToDateTime(date.Date.ToString("yyyy-MM-dd") + " " + time);
                     var selectedTimeSlot = raynaTimeSlotList.SupplierTimeSlots.SingleOrDefault(s => s.StratTime == selectedDateTime &&
-                    s.EventId == paxType &&
+                    s.EventTypeId == paxType &&
                     s.TimeSlotId == timeSlotId);
 
                     if (!string.IsNullOrEmpty(selectedTimeSlot.TimeSlotId))

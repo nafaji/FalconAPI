@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Rayna.ApiIntegration.Models.RequestModels;
 using Rayna.ApiIntegration.Models.ResponseModels;
 using System;
 using System.Collections.Generic;
@@ -154,16 +155,16 @@ namespace Rayna.ApiIntegration.Services
         private const string Failed = "Failed";
 
         private const string ApiUrl = "https://api.ventrata.com/octo";
-        private const string ApiKey = "3e5c4512-249f-4647-b443-13e1d179d08d";
+        
 
-        public async Task<RaynaTourList> GetProductListAsync()
+        public async Task<RaynaTourList> GetProductListAsync(TourList tourList)
         {
             var raynaTourList = new RaynaTourList();
 
             try
             {
                 var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tourList.ApiKey);
 
                 var url = ApiUrl + "/products";
                 
@@ -244,9 +245,9 @@ namespace Rayna.ApiIntegration.Services
                                             ProductPrice = (Convert.ToDecimal(productPrice) / 100).ToString("N2"),
                                             ProductTax = (Convert.ToDecimal(productTax) / 100).ToString("N2"),
                                             ResourceId = unit.Id,
-                                            EventId = option.Id,
+                                            EventTypeId = option.Id,
                                             IsTimeSlot = product.AvailabilityRequired,
-                                            Note = unit.InternalName.ToLower()
+                                            VariantsId = unit.InternalName.ToLower()
                                         });
                                     }
                                 }
@@ -280,23 +281,25 @@ namespace Rayna.ApiIntegration.Services
             }
         }
 
-        public async Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string productCode, string eventId, string resourceId, string note, int noOfPax)
+        public async Task<RaynaTimeSlotList> CheckAvailabilityAsync(TimeSlot timeSlot)
         {
             var raynaTimeSlotList = new RaynaTimeSlotList();
 
             try
             {
                 var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", timeSlot.ApiKey);
 
                 var url = ApiUrl + "/availability";
+                var date = timeSlot.TravelDate;
+
                 var postData = JsonConvert.SerializeObject(new
                 {
-                    productId = productCode,
-                    optionId = eventId,
+                    productId = timeSlot.ProductCode,
+                    optionId = timeSlot.EventTypeId,
                     localDateStart = date.Date.ToString("yyyy-MM-dd"),
                     localDateEnd = date.Date.ToString("yyyy-MM-dd"),
-                    units = new object[] { new { id = note, quantity = noOfPax } }
+                    units = new object[] { new { id = timeSlot.VariantsId, quantity = timeSlot.NoOfPax } }
 
                 });
                 var content = new StringContent(postData, Encoding.UTF8, "application/json");
@@ -316,17 +319,17 @@ namespace Rayna.ApiIntegration.Services
 
                         if (availableResult.Count > 0)
                         {
-                            foreach (var timeSlot in goldenToursAvailabilityResult)
+                            foreach (var goldenToursAvailability in goldenToursAvailabilityResult)
                             {
                                 supplierTimeSlots.Add(
                                     new SupplierTimeSlots
                                     {
-                                        TimeSlotId = timeSlot.Id,
-                                        EventId = eventId,
-                                        StratTime = timeSlot.LocalDateTimeStart,
-                                        EndTime = timeSlot.LocalDateTimeEnd,
-                                        Available = timeSlot.Vacancies,
-                                        ResourceId = resourceId
+                                        TimeSlotId = goldenToursAvailability.Id,
+                                        EventTypeId = timeSlot.EventTypeId,
+                                        StratTime = goldenToursAvailability.LocalDateTimeStart,
+                                        EndTime = goldenToursAvailability.LocalDateTimeEnd,
+                                        Available = goldenToursAvailability.Vacancies,
+                                        ResourceId = timeSlot.ResourceId
                                     });
                             }
 
@@ -367,49 +370,51 @@ namespace Rayna.ApiIntegration.Services
             }
         }
 
-        public async Task<RaynaBookingDetails> BookingAsync(DateTime date, 
-            string productCode, 
-            string eventId, 
-            string resourceId, 
-            string note, 
-            int noOfPax, 
-            string timeSlotId, 
-            string bookingNotes,
-            string resellerReference,
-            string fullName,
-            string emailAddress,
-            string phoneNumber,
-            string country)
+        public async Task<RaynaBookingDetails> BookingAsync(Req_RaynaBooking raynaBooking)
         {
             var raynaBookingDetails = new RaynaBookingDetails();
             try
             {
-                var raynaTimeSlotList = await CheckAvailabilityAsync(date, productCode, eventId, resourceId, note, noOfPax);
+                var timeSlot = new TimeSlot
+                {
+                    EventTypeId = raynaBooking.ProductDetails[0].EventTypeId,
+                    ResourceId = raynaBooking.ProductDetails[0].ResourceId,
+                    ProductCode = raynaBooking.ProductDetails[0].ProductId,
+                    TravelDate = raynaBooking.ProductDetails[0].TravelDate,
+                    ApiKey = raynaBooking.ApiKey,
+                    VariantsId = raynaBooking.ProductDetails[0].VariantsId,
+                    NoOfPax = raynaBooking.ProductDetails[0].Quantity
+
+                };
+
+                var raynaTimeSlotList = await CheckAvailabilityAsync(timeSlot);
 
                 if (raynaTimeSlotList.SupplierTimeSlots.Count > 0)
                 {
+                    var timeSlotId = raynaBooking.ProductDetails[0].TimeSlotId;
                     var selectedTimeSlot = raynaTimeSlotList.SupplierTimeSlots.SingleOrDefault(s => s.TimeSlotId == timeSlotId);
 
                     if (!string.IsNullOrEmpty(selectedTimeSlot.TimeSlotId))
                     {
 
                         var httpClient = new HttpClient();
-                        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
+                        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", raynaBooking.ApiKey);
 
+                        var noOfPax = raynaBooking.ProductDetails[0].Quantity;
                         var totalUnitItems = new object[noOfPax];
 
                         for (int i = 0; i < noOfPax; i++)
                         {
-                            totalUnitItems[i] = new { unitId = note };
+                            totalUnitItems[i] = new { unitId = raynaBooking.ProductDetails[0].VariantsId };
                         }
 
                         var url = ApiUrl + "/bookings";
                         var postData = JsonConvert.SerializeObject(new
                         {
-                            productId = productCode,
-                            optionId = eventId,
+                            productId = raynaBooking.ProductDetails[0].ProductId,
+                            optionId = raynaBooking.ProductDetails[0].EventTypeId,
                             availabilityId = timeSlotId,
-                            notes = bookingNotes,
+                            notes = raynaBooking.BookingNotes,
                             unitItems = totalUnitItems
                         });
                         var content = new StringContent(postData, Encoding.UTF8, "application/json");
@@ -430,14 +435,14 @@ namespace Rayna.ApiIntegration.Services
 
                                     postData = JsonConvert.SerializeObject(new
                                     {
-                                        resellerReference = resellerReference,
+                                        resellerReference = raynaBooking.ReferenceNo,
                                         contact = new
                                         {
-                                            fullName = fullName,
-                                            emailAddress = emailAddress,
-                                            phoneNumber = phoneNumber,
+                                            fullName = raynaBooking.CustomerDetails[0].FirstName,
+                                            emailAddress = raynaBooking.CustomerDetails[0].Email,
+                                            phoneNumber = raynaBooking.CustomerDetails[0].MobNo,
                                             locales = new string[] { "en-GB", "en-US", "en" },
-                                            country = country
+                                            country = raynaBooking.CustomerDetails[0].CountryName
                                         }
 
                                     });
@@ -467,7 +472,7 @@ namespace Rayna.ApiIntegration.Services
                                                 supplierTicketDetail.StartTime = goldenToursBookingConfirmationResult.Availability.LocalDateTimeStart;
                                                 supplierTicketDetail.EndTime = goldenToursBookingConfirmationResult.Availability.LocalDateTimeEnd;
 
-                                                if (note == "adult")
+                                                if (raynaBooking.ProductDetails[0].VariantsId == "adult")
                                                 {
                                                     supplierTicketDetail.NoOfAdult = 1;
                                                 }
@@ -535,29 +540,42 @@ namespace Rayna.ApiIntegration.Services
             }
         }
 
-        public async Task<string> CancelBookingAsync(string bookingId)
+        public async Task<RaynaTourCancel> CancelBookingAsync(TourCancel tourCancel)
         {
+            var raynaTourCancel = new RaynaTourCancel();
+            var supplierCancellationDetail = new SupplierCancellationDetail();
+
             try
             {
                 var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tourCancel.ApiKey);
                 httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
 
-                var url = ApiUrl + "/bookings/" + bookingId;
+                var url = ApiUrl + "/bookings/" + tourCancel.BookingId;
 
                 HttpResponseMessage response = await httpClient.DeleteAsync(url);
-
+                
                 string body = string.Empty;
 
                 if (response.IsSuccessStatusCode)
                 {
+
                     body = await response.Content.ReadAsStringAsync();
+
+                    raynaTourCancel.Status = SuccessStatus;
+                    raynaTourCancel.SupplierCancellationDetails = supplierCancellationDetail;
+                    return raynaTourCancel;
                 }
-                return body;
+
+                raynaTourCancel.Status = FailedStatus;
+                raynaTourCancel.ErrorMessage = Failed;
+                return raynaTourCancel;
             }
             catch (Exception ex)
             {
-                return ex.Message;
+                raynaTourCancel.Status = FailedStatus;
+                raynaTourCancel.ErrorMessage = ex.Message;
+                return raynaTourCancel;
             }
         }
     }

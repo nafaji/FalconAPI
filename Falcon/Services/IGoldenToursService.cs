@@ -1,4 +1,5 @@
-﻿using Rayna.ApiIntegration.Models.ResponseModels;
+﻿using Rayna.ApiIntegration.Models.RequestModels;
+using Rayna.ApiIntegration.Models.ResponseModels;
 using System;
 using System.Threading.Tasks;
 
@@ -6,24 +7,12 @@ namespace Rayna.ApiIntegration.Services
 {
     public interface IGoldenToursService
     {
-        public Task<RaynaTourList> GetProductListAsync();
+        public Task<RaynaTourList> GetProductListAsync(TourList tourList);
 
-        public Task<RaynaTimeSlotList> CheckAvailabilityAsync(DateTime date, string productCode, string eventId, string resourceId, string note, int noOfPax);
+        public Task<RaynaTimeSlotList> CheckAvailabilityAsync(TimeSlot timeSlot);
 
-        public Task<RaynaBookingDetails> BookingAsync(DateTime date,
-            string productCode,
-            string eventId,
-            string resourceId,
-            string note,
-            int noOfPax,
-            string timeSlotId,
-            string bookingNotes,
-            string resellerReference,
-            string fullName,
-            string emailAddress,
-            string phoneNumber,
-            string country);
+        public Task<RaynaBookingDetails> BookingAsync(Req_RaynaBooking raynaBooking);
 
-        public Task<string> CancelBookingAsync(string bookingId);
+        public Task<RaynaTourCancel> CancelBookingAsync(TourCancel tourCancel);
     }
 }

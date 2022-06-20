@@ -638,7 +638,7 @@ namespace Rayna.ApiIntegration.Services
                     {
                         foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList)
                         {
-                            supplierTourList.Add(new SupplierTourList { ProductCode = vgsProduct.ProductCode, ProductName = vgsProduct.ProductName, ProductDescription = vgsProduct.ProductNameExt, ProductPrice = vgsProduct.DisplayPrice.ToString(), IsTimeSlot = true, ResourceId = vgsProduct.ProductId, EventId = performance.EventId });
+                            supplierTourList.Add(new SupplierTourList { ProductCode = vgsProduct.ProductCode, ProductName = vgsProduct.ProductName, ProductDescription = vgsProduct.ProductNameExt, ProductPrice = vgsProduct.DisplayPrice.ToString(), IsTimeSlot = true, ResourceId = vgsProduct.ProductId, EventTypeId = performance.EventId });
                         }
                     }
                 }
@@ -695,7 +695,7 @@ namespace Rayna.ApiIntegration.Services
                     {
                         foreach (var vgsProduct in vgsProductResult.Answer.GetSellableProducts.ProductList.Where(p=>p.ProductId == productId && p.SeatQuantityFree >= numberOfPax))
                         {
-                            supplierTimeSlots.Add(new SupplierTimeSlots { ResourceId = vgsProduct.ProductId, EventId = performance.EventId, TimeSlotId = performance.PerformanceId, StratTime = performance.DateTimeFrom, EndTime = performance.DateTimeTo, Available = vgsProduct.SeatQuantityFree, AdultPrice = vgsProduct.DisplayPrice });
+                            supplierTimeSlots.Add(new SupplierTimeSlots { ResourceId = vgsProduct.ProductId, EventTypeId = performance.EventId, TimeSlotId = performance.PerformanceId, StratTime = performance.DateTimeFrom, EndTime = performance.DateTimeTo, Available = vgsProduct.SeatQuantityFree, AdultPrice = vgsProduct.DisplayPrice });
                         }
                     }
                 }
@@ -864,7 +864,7 @@ namespace Rayna.ApiIntegration.Services
                     if (supplierTourList.Count > 0)
                     {
                         raynaTourList.Status = SuccessStatus;
-                        raynaTourList.SupplierTourList = supplierTourList.GroupBy(s => new { s.ProductCode, s.ProductName, s.ProductPrice, s.ProductTax, s.IsTimeSlot, s.EventId, s.ResourceId }).Select(g => g.First()).ToList();
+                        raynaTourList.SupplierTourList = supplierTourList.GroupBy(s => new { s.ProductCode, s.ProductName, s.ProductPrice, s.ProductTax, s.IsTimeSlot, s.EventTypeId, s.ResourceId }).Select(g => g.First()).ToList();
 
                         return raynaTourList;
                     }
@@ -943,7 +943,7 @@ namespace Rayna.ApiIntegration.Services
                 if (supplierTimeSlots.Count > 0)
                 {
                     raynaTimeSlotList.Status = SuccessStatus;
-                    raynaTimeSlotList.SupplierTimeSlots = supplierTimeSlots.GroupBy(s => new { s.EventId, s.TimeSlotId, s.ResourceId, s.StratTime, s.EndTime, s.Available, s.AdultPrice }).Select(g => g.First()).ToList();
+                    raynaTimeSlotList.SupplierTimeSlots = supplierTimeSlots.GroupBy(s => new { s.EventTypeId, s.TimeSlotId, s.ResourceId, s.StratTime, s.EndTime, s.Available, s.AdultPrice }).Select(g => g.First()).ToList();
 
                     return raynaTimeSlotList;
                 }
