@@ -13,6 +13,8 @@ namespace Rayna.ApiIntegration.Services
 
         public Task<RaynaBookingDetails> BookingAsync(Req_RaynaBooking raynaBooking);
 
+        public Task<RaynaBookingDetails> GetBookingDetailsAsync(Req_RaynaBooking raynaBooking);
+
         public Task<RaynaTourCancel> CancelBookingAsync(TourCancel tourCancel);
     }
 }

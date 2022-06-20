@@ -98,6 +98,17 @@ namespace Rayna.ApiIntegration.Controllers
             return results;
         }
 
+        [HttpGet("GetBookingDetails")]
+        public Task<RaynaBookingDetails> GetBookingDetails(string bookingId)
+        {
+            var raynaBooking = new Req_RaynaBooking();
+            raynaBooking.BookingId = bookingId;
+            raynaBooking.ApiKey = ApiKey;
+
+            var results = _goldenToursService.GetBookingDetailsAsync(raynaBooking);
+            return results;
+        }
+
         [HttpGet("CancelBooking")]
         public Task<RaynaTourCancel> CancelBooking(string bookingId)
         {

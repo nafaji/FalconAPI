@@ -133,7 +133,20 @@ namespace Rayna.ApiIntegration.Services
 
         public string UnitId { get; set; }
 
+        public GoldenToursBookingConfirmationUnitDto Unit { get; set; }
+
         public GoldenToursBookingConfirmationUnitItemTicketDto Ticket { get; set; }
+    }
+
+
+    public class GoldenToursBookingConfirmationUnitDto
+    {
+        public string Id { get; set; }
+
+        public string InternalName { get; set; }
+
+        public string Type { get; set; }
+
     }
 
     public class GoldenToursBookingConfirmationUnitItemTicketDto
@@ -240,7 +253,8 @@ namespace Rayna.ApiIntegration.Services
                                         supplierTourList.Add(new SupplierTourList
                                         {
                                             ProductCode = product.Id,
-                                            ProductName = product.Title + " | " + option.InternalName + " | " + unit.InternalName,
+                                            //ProductName = product.Title + " | " + option.InternalName + " | " + unit.InternalName,
+                                            ProductName = product.Title,
                                             ProductDescription = product.ShortDescription,
                                             ProductPrice = (Convert.ToDecimal(productPrice) / 100).ToString("N2"),
                                             ProductTax = (Convert.ToDecimal(productTax) / 100).ToString("N2"),
@@ -487,6 +501,8 @@ namespace Rayna.ApiIntegration.Services
                                             raynaBookingDetails.SupplierConfirmationNumber = goldenToursBookingConfirmationResult.UUId;
                                             raynaBookingDetails.SupplierConfirmationCode = goldenToursBookingConfirmationResult.SupplierReference;
                                             raynaBookingDetails.Status = SuccessStatus;
+
+                                            return raynaBookingDetails;
                                         }
 
                                         raynaBookingDetails.Status = FailedStatus;
@@ -530,6 +546,83 @@ namespace Rayna.ApiIntegration.Services
 
                 return raynaBookingDetails;
 
+            }
+            catch (Exception ex)
+            {
+                raynaBookingDetails.Status = FailedStatus;
+                raynaBookingDetails.ErrorMessage = ex.Message;
+
+                return raynaBookingDetails;
+            }
+        }
+
+        public async Task<RaynaBookingDetails> GetBookingDetailsAsync(Req_RaynaBooking raynaBooking)
+        {
+            var raynaBookingDetails = new RaynaBookingDetails();
+            try
+            {
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", raynaBooking.ApiKey);
+
+                var url = ApiUrl + "/bookings/" + raynaBooking.BookingId;
+
+                HttpResponseMessage response = await httpClient.GetAsync(url);
+                //Now process the response
+                string body = string.Empty;
+
+                if (response.IsSuccessStatusCode)
+                {
+                    body = await response.Content.ReadAsStringAsync();
+
+                    if (!string.IsNullOrEmpty(body))
+                    {
+                        var goldenToursBookingConfirmationResult = JsonConvert.DeserializeObject<GoldenToursBookingConfirmationDto>(body);
+
+                        foreach (var unitItem in goldenToursBookingConfirmationResult.UnitItems)
+                        {
+                            var qrCode = unitItem.Ticket.DeliveryOptions.SingleOrDefault(d => d.DeliveryFormat == "QRCODE").DeliveryValue;
+
+                            var supplierTicketDetail = new SupplierTicketDetails();
+                            supplierTicketDetail.Barcode = qrCode;
+                            supplierTicketDetail.ProductCode = goldenToursBookingConfirmationResult.Product.Id;
+                            supplierTicketDetail.ProdctName = goldenToursBookingConfirmationResult.Product.Title;
+                            supplierTicketDetail.EventId = goldenToursBookingConfirmationResult.OptionId;
+                            supplierTicketDetail.StartTime = goldenToursBookingConfirmationResult.Availability.LocalDateTimeStart;
+                            supplierTicketDetail.EndTime = goldenToursBookingConfirmationResult.Availability.LocalDateTimeEnd;
+
+                            if (unitItem.Unit.InternalName.ToLower() == "adult")
+                            {
+                                supplierTicketDetail.NoOfAdult = 1;
+                            }
+                            else
+                            {
+                                supplierTicketDetail.NoOfChild = 1;
+                            }
+
+                            raynaBookingDetails.SupplierTicketDetails.Add(supplierTicketDetail);
+                        }
+
+                        raynaBookingDetails.SupplierConfirmationNumber = goldenToursBookingConfirmationResult.UUId;
+                        raynaBookingDetails.SupplierConfirmationCode = goldenToursBookingConfirmationResult.SupplierReference;
+                        raynaBookingDetails.Status = SuccessStatus;
+
+                        return raynaBookingDetails;
+                    }
+                    else
+                    {
+                        raynaBookingDetails.Status = FailedStatus;
+                        raynaBookingDetails.ErrorMessage = Failed;
+
+                        return raynaBookingDetails;
+                    }
+                }
+                else
+                {
+                    raynaBookingDetails.Status = FailedStatus;
+                    raynaBookingDetails.ErrorMessage = Failed;
+
+                    return raynaBookingDetails;
+                }
             }
             catch (Exception ex)
             {

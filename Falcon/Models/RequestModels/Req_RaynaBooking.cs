@@ -7,6 +7,7 @@ namespace Rayna.ApiIntegration.Models.RequestModels
 {
     public class Req_RaynaBooking
     {
+        public string BookingId { get; set; }
         public string ReferenceNo { get; set; }
         public string UserId { get; set; }
         public string UserName { get; set; }
