@@ -86,7 +86,7 @@ namespace Rayna.ApiIntegration.Services
 
         public bool Available { get; set; }
 
-        public int Vacancies { get; set; }
+        public int? Vacancies { get; set; }
 
         public GoldenToursProductPricingFromDto Pricing { get; set; }
     }
@@ -324,12 +324,12 @@ namespace Rayna.ApiIntegration.Services
                 {
                     body = await response.Content.ReadAsStringAsync();
 
-                    if (!string.IsNullOrEmpty(body))
+                    if (!string.IsNullOrEmpty(body) && body != "[]")
                     {
                         var goldenToursAvailabilityResult = JsonConvert.DeserializeObject<List<GoldenToursAvailabilityDto>>(body);
                         var supplierTimeSlots = new List<SupplierTimeSlots>();
 
-                        var availableResult = goldenToursAvailabilityResult.Where(t => t.Available == true).ToList();
+                        var availableResult = goldenToursAvailabilityResult.Where(t => t.Available == true && t.Vacancies != null).ToList();
 
                         if (availableResult.Count > 0)
                         {
@@ -342,7 +342,7 @@ namespace Rayna.ApiIntegration.Services
                                         EventTypeId = timeSlot.EventTypeId,
                                         StratTime = goldenToursAvailability.LocalDateTimeStart,
                                         EndTime = goldenToursAvailability.LocalDateTimeEnd,
-                                        Available = goldenToursAvailability.Vacancies,
+                                        Available = goldenToursAvailability.Vacancies == null ? 0 : Convert.ToInt32(goldenToursAvailability.Vacancies),
                                         ResourceId = timeSlot.ResourceId
                                     });
                             }

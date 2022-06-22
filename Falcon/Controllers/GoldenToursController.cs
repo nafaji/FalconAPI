@@ -24,16 +24,16 @@ namespace Rayna.ApiIntegration.Controllers
         }
 
         [HttpGet("GetProductList")]
-        public Task<RaynaTourList> GetProductList()
+        public async Task<RaynaTourList> GetProductList()
         {
             var tourList = new TourList();
             tourList.ApiKey = ApiKey;
-            var results = _goldenToursService.GetProductListAsync(tourList);
+            var results = await _goldenToursService.GetProductListAsync(tourList);
             return results;
         }
 
         [HttpGet("CheckAvailability")]
-        public Task<RaynaTimeSlotList> CheckAvailability(DateTime date, string productCode, string eventId, string resourceId, string variantsId, int noOfPax)
+        public async Task<RaynaTimeSlotList> CheckAvailability(DateTime date, string productCode, string eventId, string resourceId, string variantsId, int noOfPax)
         {
             var timeSlot = new TimeSlot
             {
@@ -46,12 +46,12 @@ namespace Rayna.ApiIntegration.Controllers
                 NoOfPax = noOfPax
 
             };
-            var results = _goldenToursService.CheckAvailabilityAsync(timeSlot);
+            var results = await _goldenToursService.CheckAvailabilityAsync(timeSlot);
             return results;
         }
 
         [HttpGet("Booking")]
-        public Task<RaynaBookingDetails> BookingAsync(DateTime date,
+        public async Task<RaynaBookingDetails> BookingAsync(DateTime date,
             string productCode,
             string eventId,
             string resourceId,
@@ -93,29 +93,29 @@ namespace Rayna.ApiIntegration.Controllers
             });
             
 
-            var results = _goldenToursService.BookingAsync(raynaBooking);
+            var results = await _goldenToursService.BookingAsync(raynaBooking);
 
             return results;
         }
 
         [HttpGet("GetBookingDetails")]
-        public Task<RaynaBookingDetails> GetBookingDetails(string bookingId)
+        public async Task<RaynaBookingDetails> GetBookingDetails(string bookingId)
         {
             var raynaBooking = new Req_RaynaBooking();
             raynaBooking.BookingId = bookingId;
             raynaBooking.ApiKey = ApiKey;
 
-            var results = _goldenToursService.GetBookingDetailsAsync(raynaBooking);
+            var results = await _goldenToursService.GetBookingDetailsAsync(raynaBooking);
             return results;
         }
 
         [HttpGet("CancelBooking")]
-        public Task<RaynaTourCancel> CancelBooking(string bookingId)
+        public async Task<RaynaTourCancel> CancelBooking(string bookingId)
         {
             var tourCancel = new TourCancel();
             tourCancel.ApiKey = ApiKey;
             tourCancel.BookingId = bookingId;
-            var results = _goldenToursService.CancelBookingAsync(tourCancel);
+            var results = await _goldenToursService.CancelBookingAsync(tourCancel);
             return results;
         }
     }
